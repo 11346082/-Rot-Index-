@@ -154,6 +154,10 @@
       flex: 0 0 240px;
       max-width: 260px;
     }
+    .name-row input#top-secret-input {
+      flex: 0 0 240px;
+      max-width: 260px;
+    }
 
     .name-btn {
       white-space: nowrap;
@@ -281,7 +285,8 @@
     input[type="number"],
     input[type="datetime-local"],
     select,
-    textarea {
+    textarea,
+    input[type="password"] {
       width: 100%;
       padding: 9px 11px;
       border-radius: 12px;
@@ -842,7 +847,8 @@
         align-items: flex-start;
         gap: 8px;
       }
-      .name-row input#top-name-input {
+      .name-row input#top-name-input,
+      .name-row input#top-secret-input {
         flex: 1;
         width: 100%;
         max-width: 100%;
@@ -969,33 +975,37 @@
   <section id="page-home" class="page page-active">
     <div class="container">
 
-      <!-- 使用者名字 / owner 設定 -->
-
+      <!-- 使用者登入（名字 + 密語） -->
       <div class="card">
         <form method="post" action="{{ url_for('set_owner') }}">
-          <label for="top-name-input" class="name-card-label">你的名字：</label>
+          <label for="top-name-input" class="name-card-label">登入你的專屬清單：</label>
           <div class="name-row">
             <input
               type="text"
               id="top-name-input"
               name="owner"
               value="{{ owner or '' }}"
-              placeholder="例如：柯柯、阿土、熬夜小天才">
-            
+              placeholder="名字：例如 柯柯、阿土、熬夜小天才">
+            <input
+              type="password"
+              id="top-secret-input"
+              name="secret"
+              placeholder="密語（類似密碼，不要跟別人說）"
+              required>
             <button type="submit"
                     id="set-user-btn"
                     class="btn-primary name-btn">
-              切換 / 設定使用者
+              登入 / 切換使用者
             </button>
-
-            <span id="current-user-label" class="name-text">
-              目前使用者：
-              <span data-display-name>{{ owner or '朋友' }}</span>
-              · 下面清單都是你的專屬任務 🐿
-            </span>
           </div>
+
+          <!-- 目前使用者：移到下面，保留一句話就好 -->
+          <p id="current-user-label" class="name-text" style="margin-top:8px;">
+            目前使用者：{{ owner or '尚未登入' }}{% if owner %} · 下面清單都是你的專屬任務 🐿{% endif %}
+          </p>
         </form>
       </div>
+
       <div class="hero-wrap">
         <div class="hero-sloth">
           <img id="hero-sloth-img"
@@ -1009,7 +1019,11 @@
             讓你的作業、考試、生活待辦，一點一滴「發酵」給你看。
           </p>
           <p id="hero-sub">
+            {% if owner %}
+            {{ owner }}，樹懶監督員今天會默默盯著你喔。
+            {% else %}
             樹懶監督員今天會默默盯著你喔。
+            {% endif %}
           </p>
         </div>
       </div>
@@ -1068,11 +1082,9 @@
               </label>
               <select id="initial_rot" name="initial_rot" required>
                 <option value="0">0 - 完全新鮮 🍀</option>
-                <option value="30">30 - 有點在意 🌱</option>
-                <option value="50">50 - 有壓力了 ⏰</option>
-                <option value="70">70 - 開始臭臭了 🔥</option>
-                <option value="90">90 - 很糟糕 💢</option>
-                <option value="99">99 - 可以辦頭七 🚨</option>
+                <option value="30">30 - 微微發酵中 🌱</option>
+                <option value="60">60 - 腐爛味出來了 🤢</option>
+                <option value="90">90 - 完全爛掉了 🧟‍♂️</option>
               </select>
             </div>
           </div>
@@ -1400,29 +1412,23 @@
     <div class="container">
       <div class="card">
         <div class="card-title-row">
-          <h2 class="card-title">嗨，<span data-display-name>朋友</span>！</h2>
+          <h2 class="card-title">嗨，{{ owner or '朋友' }}！</h2>
         </div>
         <p class="card-subtitle">
-          從今天開始，樹懶監督員會叮著你的腐爛指數。
-        </p>
-        <p class="profile-hint">
-          小提醒：這個名字只會存在這台裝置裡，換電腦或清除瀏覽資料就會被重置。
+          樹懶監督員今天只盯著：{{ owner or '還沒登入的人' }}。
         </p>
 
-        <div class="form-row" style="margin-top:16px;">
-          <div style="flex:1;">
-            <label for="profile-name-input">你的名字</label>
-            <input type="text" id="profile-name-input" placeholder="例如：柯柯、阿土、熬夜小天才">
-          </div>
-          <div style="flex:0 0 auto;display:flex;align-items:flex-end;">
-            <button id="save-name-btn" class="btn-primary">儲存</button>
-          </div>
-        </div>
-
-        <p class="personal-note">
-          現在紀錄的名字是：
-          <span data-display-name>朋友</span> · 樹懶監督員今天會默默盯著你喔。
-        </p>
+        {% if total_tasks > 0 %}
+          <p class="profile-hint">
+            你目前有 {{ total_tasks }} 個任務正在慢慢發酵中。<br>
+            先挑一個最臭的處理掉，樹懶會對你改觀。🦥
+          </p>
+        {% else %}
+          <p class="profile-hint">
+            你目前還沒有任務在清單裡。<br>
+            趁現在去首頁檢查看看，還有什麼一直被你假裝沒看到的事，先加一個進來吧。📝
+          </p>
+        {% endif %}
       </div>
     </div>
   </section>
@@ -1702,6 +1708,140 @@
     "再滑一下沒關係啦——你的腐爛度這麼高，也不差這 5 分鐘。（誤）",
     "先做 10 分鐘就好，不想做再爛回去也可以。但通常你會做超過。⏱️",
     "如果未來的你可以回訊息，他現在會說：拜託快點開始，我真的快爆掉了。💥",
+    "你現在偷懶的每一分鐘，未來都要拿加倍的焦慮來還。⏰😵‍💫",
+    "你不是在休息，你只是在旁觀自己的人生慢慢腐爛。🧟‍♀️🍃",
+    "作業沒有自己會好，只有分數會自己變難看而已。📚📉",
+    "再滑一下手機沒關係，只是未來的你會多掉幾撮頭髮而已。📱😵‍💫",
+    "你說你在醞釀靈感，其實只是把deadline當嚇人用。📅👻",
+    "現在偷的懶，都會變成未來熬的夜。🌙💤",
+    "你不是不會，你只是把「等一下」用到爛掉。🕒🧟‍♂️",
+    "今天不動，明天就會為今天的自己跪著寫作業。🧎‍♀️📚",
+    "害怕開始的你，之後會更害怕成績單。📄😰",
+    "你把時間存進耍廢銀行，利息就是成堆的後悔。🏦😩",
+    "舒服是現在領的，痛苦是之後一次付清的。🛋️💸",
+    "你以為在放鬆，其實是在幫壓力慢慢加碼。🎈💣",
+    "待辦清單不會自己變少，但你壽命會。📋🧓",
+    "再拖一下沒關係啦，反正到時候崩潰的不是現在的你，是未來的你。🤯⏳",
+    "你不是沒時間，只是把時間都捐給了廢掉的一天。🎁🕒",
+    "你一直說「等我狀態好一點」，結果最穩定的就是你的拖延。😪📆",
+    "那個一直說「明天再開始」的人，今天也在重複同一句台詞。🔁😶",
+    "你現在假裝看不見任務，之後任務會用成績把你叫醒。📢📊",
+    "你說你在養精蓄銳，但你的精力只花在滑手機。📱🪫",
+    "你嘴上說著要改變，手指卻準備按下一集播放。▶️😑",
+    "現在多打幾個字，之後就少掉幾聲崩潰的哀號。⌨️😵",
+    "你不欠別人作業，你欠的是未來想躺平卻不能躺的自己。🛏️🚫",
+    "你以為自己在放假，其實只是把人生按了慢速拖延。🐌📆",
+    "你的進度條不是卡住，是你自己按了暫停。⏸️📊",
+    "每一次「等一下」都在幫腐爛指數+10%。🧟‍♀️📈",
+    "你不是沒有機會，而是每次機會來你都在發呆。👀💤",
+    "你怕辛苦，所以選擇每天被壓力小拳拳捶胸口。👊😵‍💫",
+    "現在不讀書，以後就會專心讀別人的成功故事。📚✨",
+    "你說你要開始了，結果開始整理桌子、房間、整個世界，就是沒開始寫。🧹🙃",
+    "你在等動力來，其實動力在等你先動起來。🏃‍♀️⚡",
+    "你不是在放空，你是在把未來變得爆滿。🌫️📅",
+    "明明只是寫一頁的距離，你卻選擇拉長成一晚的折磨。📄🌙",
+    "你一直說「等有空再做」，事實是「不做所以一直很空」。🕳️🕒",
+    "你現在省下的是努力，之後加倍付出的是眼淚。💧📚",
+    "如果壓力會說話，它現在應該在門口排隊等你正眼看它。🚪😰",
+    "你把「先休息一下」當口頭禪，難怪疲憊一直當你室友。🛋️😴",
+    "作業放久不會變成熟作品，只會變臭掉的炸彈。🧨🧟‍♂️",
+    "你越假裝沒事，待辦就越像鬼一樣半夜出來嚇你。👻📋",
+    "現在說「等一下」，之後就會對著螢幕說「完蛋了」。😱💻",
+    "你滑過的每一則短影片，都在幫你的時間做破碎測試。📱🧩",
+    "你不是需要再想一下，你只是捨不得離開床。🛏️😪",
+    "你把腦容量拿去記梗圖，難怪記不起考試內容。🧠🖼️",
+    "每一次拖延，都在偷偷訓練你成為專業逃避選手。🏅🏃‍♂️",
+    "你說你要好好生活，但你對枕頭的態度最認真。🌙🤝",
+    "你不是沒時間寫，而是把時間全拿去焦慮要怎麼寫。😵‍💫🕒",
+    "現在不逼自己，以後生活就會逼你到牆角。🧱😓",
+    "你一直說要重啟人生，其實只需要先重啟文件就好。📄🔁",
+    "你覺得自己在充電，結果只是讓罪惡感滿格。🔋😖",
+    "你和桌上的待辦已讀不回太久了，它們準備報警了。📋🚨",
+    "你以為明天會比較有動力，其實明天只會比較累。😮‍💨📆",
+    "你已經練習逃避很久了，該輪到練習把事情做完了吧。📚💪",
+    "別再說你在等靈感，靈感在旁邊等你先打開檔案。💡💻",
+    "每一次偷懶，都在替未來的你加班加到懷疑人生。🕯️😵",
+    "你說你想要改變，可是鬧鐘一響就選擇繼續當昨天的那個人。⏰😴",
+    "你現在選擇滑手機，未來就會狂滑題目找救贖。📱➡️📖",
+    "要不是你一直拖延，你早就可以躺著爽滑成就感了。🛏️✨",
+    "你怕做不好，所以先選擇乾脆不要做，超級徹底。🎯😶",
+    "你最擅長的行動，就是把事情加入「之後再說」清單。📂🌀",
+    "你說你在調整心情，其實只是幫拖延症鋪紅毯。🟥🤡",
+    "你不是沒時間休息，而是根本還沒開始努力就先休息。🛋️😵‍💫",
+    "你把「等一下」講得像咒語，結果真的把今天變不見了。🕳️✨",
+    "你害怕開始，卻不怕每天被未完成的事折磨。🔁💔",
+    "你現在覺得沒差的小事，期末會變成你想跪地求饒的大事。📊😱",
+    "你說你壓力好大，但你做的事情只有把壓力養更大。🐷💣",
+    "你對鬧鐘的態度，跟你對目標的態度一樣：先關掉再說。⏰🙈",
+    "你把「努力」當選項，難怪結果一直當你。🎲😬",
+    "你以為自己在追劇，其實被追的是你的進度。📺🏃‍♀️",
+    "你現在不肯寫的每一個字，之後都會變成一聲嘆氣。✍️😮‍💨",
+    "你說你想變更好，但你每天最穩定的行程就是耍廢。📆😴",
+    "你不是沒夢想，只是夢想不喜歡一直躺著的人。💤🌟",
+    "你每次都說「下次一定」，結果「下次」永遠當工具人。🔁🧍‍♀️",
+    "你幫自己找了一堆理由不做事，卻沒幫未來找半條出路。🛣️😵",
+    "你把作業當背景音樂，久了就會變成心裡的警報聲。📚🚨",
+    "你追的是短暫的放鬆，卻丟掉長期的安心。🛋️❌🧠",
+    "你說你現在狀態不好，但你從來沒在好好狀態下開始過。🧊😐",
+    "你一次又一次拖延，已經快把自己變成高級版樹懶。🦥👑",
+    "你讓舒適圈變成監獄，還幫它鋪好溫暖的棉被。🛌🚫",
+    "你說你怕失敗，所以先選擇在原地爛掉。🧟‍♀️📍",
+    "你把每個夜晚變成補作業馬拉松，然後怪早上起不來。🌙🏃‍♂️",
+    "你不是沒能力，你只是把能力鎖在「明天再用」的抽屜。🔒📦",
+    "你說你在等好時機，其實時機早就被你晾到發霉了。🕰️🍄",
+    "你覺得事情好多好煩，卻還是選擇把時間丟給廢事。🗑️📱",
+    "你老是說「之後會補」，結果補考的人生越來越多。📚🔁",
+    "你把能量全浪費在內心小劇場，現實的事情一件都沒做。🎭📉",
+    "你怕失敗不敢開始，其實你早就用「不開始」徹底失敗。🚫🏁",
+    "你說你只是想放鬆一下，但你的「一下」通常是一整天。🌤️➡️🌃",
+    "你懶得規劃未來，未來也懶得給你好日子過。📆😒",
+    "你看到難的東西就關頁面，難怪現實越來越難看。❌💻",
+    "你羨慕別人有選擇，其實你每天都在選爛選項。🎲🗑️",
+    "你以為裝沒看到就沒事了，最後是成績偷偷在記仇。📊👀",
+    "你讓拖延幫你做的人生決定，然後再抱怨自己過得不好。🕰️😤",
+    "你不是被打趴在地，而是自己走進去躺平區。🛌🚧",
+    "你每次都說下次會更好，結果只是下次更慌。📆😰",
+    "你寧願每天被壓力追殺，也不願意先做一點點減輕負擔。🔪😵‍💫",
+    "你不是沒有時間，是你從來沒有把「認真」排進行程。📅🚫",
+    "你對休息很主動，對努力超被動。🔁🛋️",
+    "你說你很累，但那是因為你讓所有事情擠在一起來。🧱💥",
+    "你怕辛苦練習，只好習慣一直當沒準備好的那個人。🎤😓",
+    "你不肯現在痛一下，就會一直在「為什麼那時候不做」裡痛很久。🧠💣",
+    "你把人生活成待辦堆成山的樣子，卻還說「再看看」。⛰️👀",
+    "你不是沒有鬥志，你只是把鬥志浪費在和自己吵架。⚔️🧠",
+    "你說你壓力爆棚，但你連正事都還沒正式開工。📦😵",
+    "你害怕被否定，乾脆直接不做，連被肯定的機會都沒了。🚫⭐",
+    "你不是被環境拖累，你是自願被沙發綁架。🛋️🪤",
+    "你覺得人生好像卡住了，其實是你死抓著懶惰不放。✊😴",
+    "你每天都在祈禱一切變好，卻連最基本的一步都懶得踏出去。🙏🚫",
+    "你說你要重新開始，結果只是重新打開同一個耍廢循環。🔄📱",
+    "你拿未來當垃圾桶，把現在不想做的全部丟給它。🗑️📆",
+    "你怕現在不舒服，最後會換來長期的不舒服。💢⏳",
+    "你不是在「調整狀態」，你只是在替拖延找高級說法。🛋️🎓",
+    "你說你在觀察時機，其實只是一直待在原地不敢走。🔍📍",
+    "你怕別人看你笑話，可是你已經先陪自己演了一整齣。🎭😑",
+    "你不是沒路走，是你堅持要在床上等奇蹟。🛏️✨",
+    "你對明天有很多期待，對今天卻只剩下放棄。🌅💤",
+    "你明知道這樣下去會後悔，卻還是一邊喊怕後悔一邊繼續爛。🧟‍♀️💔",
+    "你把自己困在同一個爛循環裡，卻一直問為什麼沒變好。🔁😵",
+    "你怕努力沒用，乾脆選擇完全不用心。🧊💀",
+    "你不是被壓力打垮，是被自己的懶惰拖進水裡。🌊😫",
+    "你努力維持現在這個爛狀態，比改變還認真。🧱🙃",
+    "你說你想要翻身，可是你連側身離開手機都很勉強。📱😪",
+    "你把「改天」講到變口頭禪，結果真正被改掉的是人生機會。📆🗑️",
+    "你明明知道該做什麼，卻故意假裝自己很迷茫。🌫️🎭",
+    "你怕累，所以把所有累集中到最後一起收。📦😵‍💫",
+    "你不是被打擊到躺平，是早就躺好等藉口來蓋被子。🛌🧻",
+    "你讓懶惰幫你做主，難怪結果都長得一樣爛。🤝🗑️",
+    "你不是沒有時間振作，你只是不想放下手機。📱⛓️",
+    "你想要的東西很多，但你願意付出的力氣少得可憐。🎁📉",
+    "你把理想活成幻想，把現實活成笑話。🧠🤣",
+    "你一直喊要改變人生，結果唯一改變的只有睡覺時間。⏰🌙",
+    "你不是輸在天份，而是輸在「懶到爆」三個字。💤💥",
+    "你口口聲聲說想離開爛狀態，卻把每天都活成延長腐爛。🧟‍♂️📆",
+    "你怕開始會辛苦，卻接受每天被爛結果折磨。📊💣",
+    "你不是在等好機會，你是在等一個可以繼續廢的理由。🛋️🌀",
+    "你說你對自己很失望，但明天起床還是會照抄今天再演一次。🔁😐",
     "拖延的不是事情，是你原本可以很輕鬆的自己。給他一點尊重。🤝"
   ];
   function randomQuote() {
@@ -1735,85 +1875,31 @@
       if (e.target === quoteBackdrop) quoteBackdrop.classList.remove("show");
     });
   }
-  // ---------- 使用者名稱：首頁 + 個人 同步 ----------
+
+  // ---------- 使用者名稱：只在「尚未登入」時，把最後一次用過的名字填回去 ----------
   const NAME_KEY = 'rot_user_name';
   const SERVER_OWNER = "{{ owner or '' }}";
-
-  // 首頁上面那一排
   const topNameInput = document.getElementById('top-name-input');
   const setUserBtn = document.getElementById('set-user-btn');
-  const currentUserLabel = document.getElementById('current-user-label');
 
-  // 個人頁那張卡片
-  const profileNameInput = document.getElementById('profile-name-input');
-  const saveNameBtn = document.getElementById('save-name-btn');
-  const displayNameEls = document.querySelectorAll('[data-display-name]');
-  const heroSubEl = document.getElementById('hero-sub');
-  const personalNoteEl = document.querySelector('.personal-note');
-
-  function getStoredName() {
-    const fromLocal = localStorage.getItem(NAME_KEY);
-    if (fromLocal && fromLocal.trim()) return fromLocal;
-    return SERVER_OWNER;
-  }
-
-  function applyNameToUI(name) {
-    const trimmed = (name || '').trim();
-    const safe = trimmed || '朋友';
-
-    // 同步兩個輸入框
-    if (topNameInput) topNameInput.value = trimmed;
-    if (profileNameInput) profileNameInput.value = trimmed;
-
-    // 首頁右邊那句
-    if (currentUserLabel) {
-      currentUserLabel.innerHTML =
-        `目前使用者：<span data-display-name>${safe}</span> · 下面清單都是你的專屬任務 🐿`;
-    }
-
-    // 其他需要顯示名字的地方（個人頁 title、下面一句話）
-    displayNameEls.forEach(el => el.textContent = safe);
-
-    // Hero 底下那句話
-    if (heroSubEl) {
-      heroSubEl.textContent = trimmed
-        ? `${safe}，樹懶監督員今天會默默盯著你喔。`
-        : '樹懶監督員今天會默默盯著你喔。';
-    }
-
-    // 個人頁「現在紀錄的名字是...」那行
-    if (personalNoteEl) {
-      personalNoteEl.style.display = trimmed ? 'block' : 'none';
+  // 如果後端還沒有登入的使用者，就用 localStorage 幫忙帶入上次打過的名字
+  if (!SERVER_OWNER && topNameInput) {
+    const storedName = localStorage.getItem(NAME_KEY);
+    if (storedName && storedName.trim()) {
+      topNameInput.value = storedName.trim();
     }
   }
 
-  function saveNameToLocal(name) {
-    const trimmed = (name || '').trim();
-    if (trimmed) {
-      localStorage.setItem(NAME_KEY, trimmed);
-    } else {
-      localStorage.removeItem(NAME_KEY);
-    }
-  }
-
-  // 進入頁面時，先用 localStorage / server 的名字套 UI
-  applyNameToUI(getStoredName());
-
-  // 首頁那顆「切換 / 設定使用者」：
-  // 送出 form 的同時，順便把名字記在 localStorage
+  // 按下「登入 / 切換使用者」時，把名字記在 localStorage（方便下次自動帶入）
   if (setUserBtn && topNameInput) {
     setUserBtn.addEventListener('click', () => {
-      saveNameToLocal(topNameInput.value);
-      // 不阻止預設行為，讓表單照常 POST 到 /set_owner
-    });
-  }
-
-  // 個人頁面的「儲存」：只更新 localStorage + 畫面
-  if (saveNameBtn && profileNameInput) {
-    saveNameBtn.addEventListener('click', () => {
-      saveNameToLocal(profileNameInput.value);
-      applyNameToUI(profileNameInput.value);
-      alert("已更新名稱，下次回到首頁也會套用這個名字喔！");
+      const name = (topNameInput.value || '').trim();
+      if (name) {
+        localStorage.setItem(NAME_KEY, name);
+      } else {
+        localStorage.removeItem(NAME_KEY);
+      }
+      // 不擋表單送出
     });
   }
 

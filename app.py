@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
 import redis
 import time
 from datetime import datetime, date
@@ -129,25 +129,25 @@ def calc_rot_info(created_at, deadline_ts, is_routine,
         emoji = "🍀"
         message = "完全新鮮，現在開始剛剛好！"
         bucket = "fresh"
-    elif level < 50:
-        emoji = "🌱"
-        message = "還來得及，現在做最輕鬆！"
-        bucket = "mild"
     elif level < 70:
-        emoji = "⏰"
-        message = "再拖就要開始臭臭囉！"
-        bucket = "medium"
+        emoji = "🌱"
+        message = "半熟半爛、還救得回來！"
+        bucket = "mild"
     elif level < 90:
-        emoji = "🔥"
-        message = "你不要再滑手機了好嗎！"
+        emoji = "🍄"
+        message = "楞著幹嘛？還不快去做！"
+        bucket = "medium"
+    elif level < 100:
+        emoji = "💥"
+        message = "腐爛爆表沒救了，就你最會拖！"
         bucket = "serious"
     elif level < 99:
-        emoji = "💢"
-        message = "這樣下去你真的會一事無成。"
+        emoji = "💥"
+        message = "腐爛爆表沒救了，就你最會拖！"
         bucket = "critical"
     else:
         emoji = "🚨"
-        message = "這個任務已經可以辦頭七了。"
+        message = "這樣下去你真的會一事無成。"
         bucket = "dead"
 
     return {
@@ -229,24 +229,52 @@ def is_today(ts_value):
 
 
 # -----------------------------------------------------
-# 小工具：依目前使用者名字決定 queue key
+# 使用者相關小工具
 # -----------------------------------------------------
-def get_queue_keys(owner):
-    if owner:
-        return f"today_queue:{owner}", f"today_queue:{owner}:current"
-    # 沒設定名字時用共用 key（理論上現在不會用到）
+def get_queue_keys(owner_key):
+    """
+    owner_key 是真正用來區分使用者的 key（名字 + 密語）
+    """
+    if owner_key:
+        return f"today_queue:{owner_key}", f"today_queue:{owner_key}:current"
+    # 沒設定時用共用 key（理論上現在不會用到）
     return "today_queue", "today_queue:current"
 
 
+def get_current_owner():
+    """
+    回傳 (owner_key, display_name)
+
+    - owner_key：實際寫進 Redis 的 owner，格式像「伶伶#mySecret123」
+    - display_name：畫面上顯示的名字（不含密語）
+    """
+    return session.get("owner_key"), session.get("display_name")
+
+
 # -----------------------------------------------------
-# 設定 / 切換使用者名字（owner）
+# 設定 / 切換使用者（名字 + 密語）
 # -----------------------------------------------------
 @app.route("/set_owner", methods=["POST"])
 def set_owner():
-    owner = request.form.get("owner", "").strip()
-    if not owner:
-        owner = "匿名"
-    session["owner"] = owner
+    # 顯示用的名字
+    name = request.form.get("owner", "").strip()
+    # 像密碼一樣的密語
+    secret = request.form.get("secret", "").strip()
+
+    if not name:
+        name = "匿名"
+
+    # 沒密語就不讓登入（前端也會擋一次，這裡再保險）
+    if not secret:
+        return redirect(url_for("index"))
+
+    # 真正用來分資料的 key：名字 + 密語
+    owner_key = f"{name}#{secret}"
+
+    # 寫入 session
+    session["owner_key"] = owner_key      # 後端 / Redis 用
+    session["display_name"] = name        # 前端顯示用
+
     return redirect(url_for("index"))
 
 
@@ -255,10 +283,10 @@ def set_owner():
 # -----------------------------------------------------
 @app.route("/")
 def index():
-    owner = session.get("owner")
+    owner_key, display_name = get_current_owner()
 
-    # 如果還沒設定名字，就先顯示空清單，請他填名字
-    if not owner:
+    # 如果還沒登入，就先顯示空清單，請他填名字 + 密語
+    if not owner_key:
         categories = ["homework", "exam", "life", "habit", "other"]
         category_counts = {c: 0 for c in categories}
         return render_template(
@@ -274,7 +302,7 @@ def index():
             owner=None,
         )
 
-    # 讀出所有任務 ID（所有人共用 list，等等用 owner 過濾）
+    # 讀出所有任務 ID（所有人共用 list，等等用 owner_key 過濾）
     task_ids = r.lrange("tasks", 0, -1)
 
     tasks = []
@@ -297,7 +325,7 @@ def index():
 
         task_owner = data.get("owner")
         # 只顯示屬於目前登入者的任務
-        if task_owner != owner:
+        if task_owner != owner_key:
             continue
 
         # 正規化分類（舊資料如果是中文，改成英文代碼）
@@ -345,26 +373,26 @@ def index():
     tasks.sort(key=lambda t: t["rot_level"], reverse=True)
 
     # -----------------------------------------------------
-    # 自動重建分類索引（Set Index）→ 改成跟 owner 綁在一起
+    # 自動重建分類索引（Set Index）→ 跟 owner_key 綁在一起
     # -----------------------------------------------------
     for c in categories:
-        r.delete(f"idx:{owner}:cat:{c}")
+        r.delete(f"idx:{owner_key}:cat:{c}")
 
     for t in tasks:
         cat = t["category"]
         if cat not in categories:
             cat = "other"
-        r.sadd(f"idx:{owner}:cat:{cat}", t["id"])
+        r.sadd(f"idx:{owner_key}:cat:{cat}", t["id"])
 
     category_counts = {
-        c: r.scard(f"idx:{owner}:cat:{c}") for c in categories
+        c: r.scard(f"idx:{owner_key}:cat:{c}") for c in categories
     }
     total_tasks = len(tasks)
 
     # -----------------------------------------------------
-    # Sorted Set：最臭任務排行榜（每個 owner 一份）
+    # Sorted Set：最臭任務排行榜（每個 owner_key 一份）
     # -----------------------------------------------------
-    rot_rank_key = f"rot_rank:{owner}"
+    rot_rank_key = f"rot_rank:{owner_key}"
     pipe = r.pipeline(transaction=False)
     pipe.delete(rot_rank_key)
     for tid, t in tasks_by_id.items():
@@ -384,12 +412,12 @@ def index():
             })
 
     # -----------------------------------------------------
-    # Streams：最近操作紀錄（含打卡）→ 只看自己的 owner
+    # Streams：最近操作紀錄（含打卡）→ 只看自己的 owner_key
     # -----------------------------------------------------
     events_raw = r.xrevrange("task_events", max="+", min="-", count=100)
     events = []
     for ev_id, fields in events_raw:
-        if fields.get("owner") != owner:
+        if fields.get("owner") != owner_key:
             continue
 
         ev_type = fields.get("type", "")
@@ -431,12 +459,12 @@ def index():
         })
 
     # -----------------------------------------------------
-    # 完成任務紀錄（另一條 Streams）→ 只看自己的 owner
+    # 完成任務紀錄（另一條 Streams）→ 只看自己的 owner_key
     # -----------------------------------------------------
     done_raw = r.xrevrange("task_done", max="+", min="-", count=50)
     done_events = []
     for ev_id, fields in done_raw:
-        if fields.get("owner") != owner:
+        if fields.get("owner") != owner_key:
             continue
 
         title = fields.get("title")
@@ -461,9 +489,9 @@ def index():
         })
 
     # -----------------------------------------------------
-    # 今日救援 Queue 狀態（每個 owner 自己一個 queue）
+    # 今日救援 Queue 狀態（每個 owner_key 自己一個 queue）
     # -----------------------------------------------------
-    queue_key, current_key = get_queue_keys(owner)
+    queue_key, current_key = get_queue_keys(owner_key)
     queue_count = r.llen(queue_key)
 
     rescue_task = None
@@ -471,7 +499,7 @@ def index():
     if current_id:
         key = f"task:{current_id}"
         data = r.hgetall(key)
-        if data and data.get("owner") == owner:
+        if data and data.get("owner") == owner_key:
             interval_days = int(data.get("interval_days", 0) or 0)
             last_checkin_ts = data.get("last_checkin_ts")
             initial_rot = data.get("initial_rot", 0)
@@ -509,7 +537,7 @@ def index():
         total_tasks=total_tasks,
         events=events,
         done_events=done_events,
-        owner=owner,
+        owner=display_name,
     )
 
 
@@ -518,9 +546,9 @@ def index():
 # -----------------------------------------------------
 @app.route("/add", methods=["POST"])
 def add_task():
-    owner = session.get("owner")
-    if not owner:
-        # 沒設定名字就不讓新增
+    owner_key, display_name = get_current_owner()
+    if not owner_key:
+        # 沒登入就不讓新增
         return redirect(url_for("index"))
 
     title = request.form.get("title", "").strip()
@@ -577,10 +605,10 @@ def add_task():
         "initial_rot": initial_rot,
         "interval_days": interval_days,
         "last_checkin_ts": "",
-        "owner": owner,
+        "owner": owner_key,
     })
     pipe.rpush("tasks", new_id_str)
-    pipe.sadd(f"idx:{owner}:cat:{category}", new_id_str)
+    pipe.sadd(f"idx:{owner_key}:cat:{category}", new_id_str)
     pipe.execute()
 
     r.xadd("task_events", {
@@ -588,7 +616,7 @@ def add_task():
         "task_id": new_id_str,
         "title": title,
         "category": category,
-        "owner": owner,
+        "owner": owner_key,
         "ts": str(int(created_at)),
     })
 
@@ -600,10 +628,13 @@ def add_task():
 # -----------------------------------------------------
 @app.route("/edit/<task_id>", methods=["GET", "POST"])
 def edit_task(task_id):
-    owner = session.get("owner")
+    owner_key, display_name = get_current_owner()
+    if not owner_key:
+        return redirect(url_for("index"))
+
     key = f"task:{task_id}"
     data = r.hgetall(key)
-    if not data or data.get("owner") != owner:
+    if not data or data.get("owner") != owner_key:
         return redirect(url_for("index"))
 
     if request.method == "POST":
@@ -658,12 +689,12 @@ def edit_task(task_id):
             "initial_rot": initial_rot,
             "interval_days": interval_days,
             "last_checkin_ts": last_checkin_ts,
-            "owner": owner,
+            "owner": owner_key,
         })
 
         if old_category != category:
-            pipe.srem(f"idx:{owner}:cat:{old_category}", task_id)
-            pipe.sadd(f"idx:{owner}:cat:{category}", task_id)
+            pipe.srem(f"idx:{owner_key}:cat:{old_category}", task_id)
+            pipe.sadd(f"idx:{owner_key}:cat:{category}", task_id)
 
         pipe.execute()
 
@@ -672,7 +703,7 @@ def edit_task(task_id):
             "task_id": task_id,
             "title": title,
             "category": category,
-            "owner": owner,
+            "owner": owner_key,
             "ts": str(int(time.time())),
         })
 
@@ -700,10 +731,13 @@ def edit_task(task_id):
 # -----------------------------------------------------
 @app.route("/checkin/<task_id>", methods=["GET", "POST"])
 def checkin_task(task_id):
-    owner = session.get("owner")
+    owner_key, display_name = get_current_owner()
+    if not owner_key:
+        return redirect(url_for("index"))
+
     key = f"task:{task_id}"
     data = r.hgetall(key)
-    if not data or data.get("owner") != owner:
+    if not data or data.get("owner") != owner_key:
         return redirect(url_for("index"))
 
     if request.method == "POST":
@@ -717,14 +751,14 @@ def checkin_task(task_id):
             "task_id": task_id,
             "title": title,
             "note": note,
-            "owner": owner,
+            "owner": owner_key,
             "ts": str(int(now_ts)),
         })
         r.xadd("task_events", {
             "type": "checkin",
             "task_id": task_id,
             "title": title,
-            "owner": owner,
+            "owner": owner_key,
             "ts": str(int(now_ts)),
         })
 
@@ -751,19 +785,22 @@ def checkin_task(task_id):
 
 
 # -----------------------------------------------------
-# 檢視打卡紀錄（全部）→ 只看自己的 owner
+# 檢視打卡紀錄（全部）→ 只看自己的 owner_key
 # -----------------------------------------------------
 @app.route("/checkins")
 def view_checkins():
     """
     檢視所有打卡紀錄（從 Redis Stream: task_checkin 抓最近 100 筆）
     """
-    owner = session.get("owner")
+    owner_key, display_name = get_current_owner()
+    if not owner_key:
+        return redirect(url_for("index"))
+
     events_raw = r.xrevrange("task_checkin", max="+", min="-", count=100)
 
     records = []
     for ev_id, fields in events_raw:
-        if fields.get("owner") != owner:
+        if fields.get("owner") != owner_key:
             continue
 
         title = fields.get("title", "")
@@ -795,10 +832,13 @@ def view_checkins():
 # -----------------------------------------------------
 @app.route("/done/<task_id>", methods=["POST"])
 def done_task(task_id):
-    owner = session.get("owner")
+    owner_key, display_name = get_current_owner()
+    if not owner_key:
+        return redirect(url_for("index"))
+
     key = f"task:{task_id}"
     data = r.hgetall(key)
-    if not data or data.get("owner") != owner:
+    if not data or data.get("owner") != owner_key:
         return redirect(url_for("index"))
 
     title = data.get("title", "") if data else ""
@@ -809,7 +849,7 @@ def done_task(task_id):
         "task_id": task_id,
         "title": title,
         "category": category,
-        "owner": owner,
+        "owner": owner_key,
         "ts": str(int(now_ts)),
     })
 
@@ -817,10 +857,10 @@ def done_task(task_id):
     if data:
         r.delete(key)
     r.lrem("tasks", 0, task_id)
-    r.srem(f"idx:{owner}:cat:{category}", task_id)
-    r.zrem(f"rot_rank:{owner}", task_id)
+    r.srem(f"idx:{owner_key}:cat:{category}", task_id)
+    r.zrem(f"rot_rank:{owner_key}", task_id)
 
-    queue_key, current_key = get_queue_keys(owner)
+    queue_key, current_key = get_queue_keys(owner_key)
     r.lrem(queue_key, 0, task_id)
     current_id = r.get(current_key)
     if current_id == task_id:
@@ -834,10 +874,13 @@ def done_task(task_id):
 # -----------------------------------------------------
 @app.route("/delete/<task_id>", methods=["POST"])
 def delete_task(task_id):
-    owner = session.get("owner")
+    owner_key, display_name = get_current_owner()
+    if not owner_key:
+        return redirect(url_for("index"))
+
     key = f"task:{task_id}"
     data = r.hgetall(key)
-    if not data or data.get("owner") != owner:
+    if not data or data.get("owner") != owner_key:
         return redirect(url_for("index"))
 
     category = data.get("category", "other")
@@ -845,10 +888,10 @@ def delete_task(task_id):
 
     r.delete(key)
     r.lrem("tasks", 0, task_id)
-    r.srem(f"idx:{owner}:cat:{category}", task_id)
-    r.zrem(f"rot_rank:{owner}", task_id)
+    r.srem(f"idx:{owner_key}:cat:{category}", task_id)
+    r.zrem(f"rot_rank:{owner_key}", task_id)
 
-    queue_key, current_key = get_queue_keys(owner)
+    queue_key, current_key = get_queue_keys(owner_key)
     r.lrem(queue_key, 0, task_id)
     current_id = r.get(current_key)
     if current_id == task_id:
@@ -858,7 +901,7 @@ def delete_task(task_id):
         "type": "deleted",
         "task_id": task_id,
         "title": title,
-        "owner": owner,
+        "owner": owner_key,
         "ts": str(int(time.time())),
     })
 
@@ -870,13 +913,16 @@ def delete_task(task_id):
 # -----------------------------------------------------
 @app.route("/queue/add/<task_id>", methods=["POST"])
 def add_to_queue(task_id):
-    owner = session.get("owner")
-    key = f"task:{task_id}"
-    data = r.hgetall(key)
-    if not data or data.get("owner") != owner:
+    owner_key, display_name = get_current_owner()
+    if not owner_key:
         return redirect(url_for("index"))
 
-    queue_key, _ = get_queue_keys(owner)
+    key = f"task:{task_id}"
+    data = r.hgetall(key)
+    if not data or data.get("owner") != owner_key:
+        return redirect(url_for("index"))
+
+    queue_key, _ = get_queue_keys(owner_key)
     current_list = r.lrange(queue_key, 0, -1)
     if task_id not in current_list:
         r.rpush(queue_key, task_id)
@@ -885,7 +931,7 @@ def add_to_queue(task_id):
             "type": "queue_add",
             "task_id": task_id,
             "title": title or "",
-            "owner": owner,
+            "owner": owner_key,
             "ts": str(int(time.time())),
         })
 
@@ -894,8 +940,11 @@ def add_to_queue(task_id):
 
 @app.route("/queue/next", methods=["POST"])
 def next_rescue():
-    owner = session.get("owner")
-    queue_key, current_key = get_queue_keys(owner)
+    owner_key, display_name = get_current_owner()
+    if not owner_key:
+        return redirect(url_for("index"))
+
+    queue_key, current_key = get_queue_keys(owner_key)
     tid = r.lpop(queue_key)
     if tid:
         r.set(current_key, tid)
@@ -906,7 +955,7 @@ def next_rescue():
             "type": "rescue_pick",
             "task_id": tid,
             "title": title or "",
-            "owner": owner,
+            "owner": owner_key,
             "ts": str(int(time.time())),
         })
     else:
@@ -920,10 +969,13 @@ def next_rescue():
 @app.route("/checkins/<task_id>")
 def view_task_checkins_by_task(task_id):
     """只看某一個任務的打卡紀錄"""
-    owner = session.get("owner")
+    owner_key, display_name = get_current_owner()
+    if not owner_key:
+        return redirect(url_for("index"))
+
     key = f"task:{task_id}"
     data = r.hgetall(key)
-    if not data or data.get("owner") != owner:
+    if not data or data.get("owner") != owner_key:
         return redirect(url_for("index"))
 
     title = data.get("title", f"任務 #{task_id}") if data else f"任務 #{task_id}"
@@ -931,7 +983,7 @@ def view_task_checkins_by_task(task_id):
     events_raw = r.xrevrange("task_checkin", max="+", min="-", count=200)
     records = []
     for ev_id, fields in events_raw:
-        if fields.get("owner") != owner:
+        if fields.get("owner") != owner_key:
             continue
         if fields.get("task_id") != str(task_id):
             continue
