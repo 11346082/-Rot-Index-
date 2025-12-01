@@ -129,11 +129,11 @@ def calc_rot_info(created_at, deadline_ts, is_routine,
         emoji = "🍀"
         message = "完全新鮮，現在開始剛剛好！"
         bucket = "fresh"
-    elif level < 70:
+    elif level < 40:
         emoji = "🌱"
         message = "半熟半爛、還救得回來！"
         bucket = "mild"
-    elif level < 90:
+    elif level < 70:
         emoji = "🍄"
         message = "楞著幹嘛？還不快去做！"
         bucket = "medium"
