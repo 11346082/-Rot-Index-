@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>打卡 - 拖延腐爛清單</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Serif TC', serif;
+            background: #f3f4f6;
+            margin: 0;
+        }
+        .container {
+            max-width: 720px;
+            margin: 40px auto;
+            padding: 0 20px 40px;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 20px 22px;
+            box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+        }
+        h1 {
+            font-size: 24px;
+            margin: 0 0 8px;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 16px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            color: #4b5563;
+            margin-bottom: 4px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 9px 11px;
+            border-radius: 12px;
+            border: 1px solid #d1d5db;
+            font-size: 14px;
+            box-sizing: border-box;
+            font-family: 'Noto Serif TC', serif;
+        }
+        .btn {
+            border: none;
+            border-radius: 999px;
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            font-family: 'Noto Serif TC', serif;
+        }
+        .btn-primary {
+            background: #16a34a;
+            color: white;
+        }
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #374151;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn-primary:hover,
+        .btn-secondary:hover {
+            opacity: .9;
+        }
+        .actions {
+            margin-top: 16px;
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        .last-checkin {
+            font-size: 12px;
+            color: #9ca3af;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h1>為「{{ task.title }}」打卡 ✅</h1>
+        <p class="subtitle">
+            簡單記一下你今天為這個任務做了什麼，打卡後首頁會顯示「今日已打卡」。
+        </p>
+
+        {% if last_checkin %}
+            <div class="last-checkin">
+                上次打卡時間：{{ last_checkin }}
+            </div>
+        {% endif %}
+
+        <form method="post" action="{{ url_for('checkin_task', task_id=task.id) }}">
+            <label for="note">今天做了什麼？</label>
+            <textarea id="note" name="note"
+                      placeholder="例如：完成 3 題練習、整理 15 分鐘書桌、背了 20 個單字⋯⋯"></textarea>
+
+            <div class="actions">
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">取消返回</a>
+                <button type="submit" class="btn btn-primary">打卡完成 ✨</button>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

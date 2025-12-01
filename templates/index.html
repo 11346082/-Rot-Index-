@@ -1,0 +1,1822 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>腐爛指數 Rot Index</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/favicon.png') }}">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Noto Serif TC', serif;
+      background: #ffffff;
+      margin: 0;
+      color: #111827;
+    }
+    a {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    /* ---------------- NavBar ---------------- */
+    .top-nav {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: #ffffff;
+      box-shadow: 0 1px 0 rgba(15,23,42,0.06);
+    }
+    .top-nav-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+      flex-wrap: nowrap;
+    }
+    .brand-block {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .brand-title {
+      font-size: 20px;
+      letter-spacing: 0.15em;
+      font-weight: 600;
+    }
+    .brand-sub {
+      font-size: 12px;
+      color: #6b7280;
+      letter-spacing: .25em;
+      text-transform: uppercase;
+    }
+
+    .nav-center {
+      display: flex;
+      gap: 32px;
+      flex: 1;
+      justify-content: center;
+    }
+    .nav-link {
+      position: relative;
+      font-size: 14px;
+      padding-bottom: 4px;
+      cursor: pointer;
+      color: #4b5563;
+      white-space: nowrap;
+    }
+    .nav-link.active {
+      color: #1d4ed8;
+      font-weight: 500;
+    }
+    .nav-link::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 0;
+      height: 2px;
+      background: #1d4ed8;
+      transition: width .25s ease;
+    }
+    .nav-link.active::after {
+      width: 100%;
+    }
+    .nav-link:hover::after {
+      width: 100%;
+    }
+
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .quote-nav-btn {
+      border: none;
+      border-radius: 999px;
+      padding: 8px 18px;
+      font-size: 13px;
+      cursor: pointer;
+      background: #1d4ed8;
+      color: #f9fafb;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 8px 16px rgba(37, 99, 235, 0.25);
+      white-space: nowrap;
+      transition: all 0.18s ease;
+    }
+    .quote-nav-btn:hover {
+      filter: brightness(1.05);
+      box-shadow: 0 10px 20px rgba(37, 99, 235, 0.35);
+      transform: translateY(-1px);
+    }
+
+    /* ---------------- Layout ---------------- */
+    .page-wrapper {
+      min-height: calc(100vh - 120px);
+    }
+    .page {
+      display: none;
+      padding: 40px 0 80px;
+    }
+    .page-active {
+      display: block;
+    }
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    /* ========== 你的名字區塊：label 在上方，下面一行排好 ========== */
+    .name-card-label {
+      display: block;
+      font-size: 14px;
+      color: #4b5563;
+      margin-bottom: 4px;
+    }
+
+    .name-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 4px;
+    }
+
+    .name-row input#top-name-input {
+      flex: 0 0 240px;
+      max-width: 260px;
+    }
+
+    .name-btn {
+      white-space: nowrap;
+    }
+
+    .name-text {
+      font-size: 14px;
+      text-align: right;
+      color: #4b5563;
+      flex: 1;
+      min-width: 0;
+    }
+
+    /* ---------------- Hero / Home ---------------- */
+    .hero-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 32px;
+      padding-top: 40px;
+      padding-bottom: 40px;
+    }
+    .hero-sloth {
+      flex-shrink: 0;
+    }
+    .hero-sloth img {
+      width: 110px;
+      height: 110px;
+      border-radius: 26px;
+      object-fit: cover;
+      box-shadow: 0 18px 45px rgba(15,23,42,0.24);
+      background: #fefce8;
+    }
+    .hero-text {
+      max-width: 520px;
+    }
+    .hero-title {
+      margin: 0 0 6px;
+      font-size: 30px;
+      letter-spacing: 0.04em;
+    }
+    .hero-line {
+      margin: 0;
+      font-size: 14px;
+      color: #4b5563;
+    }
+    #hero-sub {
+      margin-top: 6px;
+      font-size: 13px;
+      color: #9ca3af;
+    }
+
+    /* 左右漂浮樹懶：兩邊方向相反，但都 18 秒 */
+    .side-sloth {
+      position: fixed;
+      width: 110px;
+      height: 110px;
+      object-fit: contain;
+      opacity: 0.9;
+      pointer-events: none;
+      z-index: 5;
+      animation-duration: 18s;
+      animation-timing-function: ease-in-out;
+      animation-iteration-count: infinite;
+      animation-direction: alternate;
+    }
+    .side-sloth-left {
+      left: 22px;
+      animation-name: float-up-down;
+    }
+    .side-sloth-right {
+      right: 22px;
+      width: 130px;
+      height: 130px;
+      animation-name: float-down-up;
+    }
+
+    @keyframes float-up-down {
+      from { transform: translateY(-24px); }
+      to   { transform: translateY(24px); }
+    }
+    @keyframes float-down-up {
+      from { transform: translateY(24px); }
+      to   { transform: translateY(-24px); }
+    }
+
+    /* ---------------- Cards / 表單 / 任務清單 ---------------- */
+    .card {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 20px 22px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      margin-bottom: 24px;
+    }
+    .card-title-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .card-title {
+      font-size: 18px;
+      margin: 0;
+    }
+    .card-subtitle {
+      font-size: 13px;
+      color: #6b7280;
+      margin: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: #4b5563;
+      margin-bottom: 4px;
+    }
+    .required-asterisk {
+      color: #ef4444;
+      font-size: 12px;
+      margin-left: 2px;
+      position: relative;
+      top: -2px;
+    }
+    input[type="text"],
+    input[type="number"],
+    input[type="datetime-local"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 9px 11px;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+      font-size: 14px;
+      box-sizing: border-box;
+      font-family: 'Noto Serif TC', serif;
+    }
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+    input::placeholder,
+    textarea::placeholder {
+      color: #9ca3af;
+    }
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      margin-top: 6px;
+      color: #4b5563;
+    }
+
+    button,
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: 'Noto Serif TC', serif;
+      transition: all 0.18s ease;
+    }
+
+    .btn-primary {
+      background: #4f46e5;
+      color: #f9fafb;
+    }
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #374151;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-info {
+      background: #8aa6c4;
+      color: #ffffff;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .btn-warning {
+      background: #d9b08c;
+      color: #5b3e2b;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .btn-success,
+    .btn-danger {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 10px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: 'Noto Serif TC', serif;
+      width: auto;
+      height: auto;
+    }
+    .btn-success {
+      background: #8fb9a5;
+      color: #ffffff;
+    }
+    .btn-danger {
+      background: #d78a8a;
+      color: #ffffff;
+    }
+
+    .btn-primary:hover,
+    .btn-secondary:hover,
+    .btn-success:hover,
+    .btn-info:hover,
+    .btn-warning:hover,
+    .btn-danger:hover {
+      filter: brightness(1.05);
+      box-shadow: 0 4px 10px rgba(15,23,42,0.18);
+      transform: translateY(-1px);
+    }
+
+    .form-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .form-row > div {
+      flex: 1;
+      min-width: 220px;
+    }
+
+    /* 任務清單標題 & 篩選 */
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+    .filter-label {
+      font-size: 13px;
+      color: #6b7280;
+      margin-right: 4px;
+      white-space: nowrap;
+    }
+    .filter-btn {
+      border-radius: 999px;
+      padding: 5px 12px;
+      font-size: 13px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      color: #4b5563;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.18s ease;
+    }
+    .filter-btn.active {
+      background: #6366f1;
+      color: #ffffff;
+      border-color: #6366f1;
+    }
+    .filter-btn:hover {
+      filter: brightness(1.05);
+      box-shadow: 0 3px 8px rgba(15,23,42,0.18);
+      transform: translateY(-1px);
+    }
+
+    /* 任務卡片 grid */
+    .tasks-grid {
+      display: grid;
+      gap: 16px;
+      margin-top: 8px;
+    }
+    .tasks-grid.three-cols {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .tasks-grid.two-cols {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .task-card {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 14px 15px 12px;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .task-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .task-title {
+      font-weight: 600;
+      font-size: 15px;
+      word-break: break-word;
+    }
+    .badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .badge-homework { background: #fee2e2; color: #b91c1c; }
+    .badge-exam     { background: #dbeafe; color: #1d4ed8; }
+    .badge-life     { background: #dcfce7; color: #15803d; }
+    .badge-habit    { background: #f5e9ff; color: #7c3aed; }
+    .badge-other    { background: #e5e7eb; color: #4b5563; }
+    .deadline {
+      font-size: 14px;
+      color: #6b7280;
+    }
+    .rot-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+    }
+    .rot-emoji {
+      font-size: 22px;
+    }
+    .rot-level {
+      font-size: 13px;
+      color: #9ca3af;
+    }
+    .rot-strip {
+      height: 4px;
+      border-radius: 999px;
+      margin-top: 4px;
+    }
+    .rot-fresh   { background: #bbf7d0; }
+    .rot-mild    { background: #fef9c3; }
+    .rot-medium  { background: #fed7aa; }
+    .rot-serious { background: #fecaca; }
+    .rot-critical{ background: #fca5a5; }
+    .rot-dead    { background: #b91c1c; }
+
+    .task-footer {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .created-at-row {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+    .task-footer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: nowrap;
+    }
+    .checkin-tag {
+      font-size: 13px;
+      border-radius: 999px;
+      padding: 5px 10px;
+      display: inline-block;
+      white-space: nowrap;
+    }
+    .checkin-done {
+      color: #166534;
+      background: #dcfce7;
+    }
+    .checkin-miss {
+      color: #92400e;
+      background: #fef3c7;
+    }
+
+    /* 篩選後沒有任務時的提示 */
+    .tasks-empty-hint {
+      margin-top: 12px;
+      font-size: 13px;
+      color: #9ca3af;
+      text-align: center;
+      display: none;
+    }
+
+    /* ---------------- 排行榜 & 紀錄列表 ---------------- */
+    .rank-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 12px 0 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .rank-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #f9fafb;
+      font-size: 14px;
+    }
+    .rank-medal {
+      width: 28px;
+      text-align: center;
+      font-size: 18px;
+    }
+    .rank-main {
+      flex: 1;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .rank-title {
+      font-weight: 500;
+    }
+    .rank-score {
+      color: #b91c1c;
+      font-weight: 600;
+    }
+
+    .events-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 10px 0 0;
+    }
+    .event-item {
+      font-size: 14px;
+      margin-bottom: 4px;
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .event-text {
+      color: #4b5563;
+    }
+    .event-time {
+      color: #9ca3af;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    /* ---------------- 個人頁面 ---------------- */
+    .personal-note {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #6b7280;
+      display: none;
+    }
+    .profile-hint {
+      font-size: 13px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+
+    /* ---------------- 心靈雞湯 Modal ---------------- */
+    .quote-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+    }
+    .quote-backdrop.show {
+      display: flex;
+    }
+    .quote-modal {
+      background: #0f172a;
+      border-radius: 20px;
+      padding: 22px 24px 20px;
+      width: 360px;
+      max-width: 92%;
+      box-shadow: 0 20px 40px rgba(15,23,42,0.6);
+      color: #e5e7eb;
+    }
+    .quote-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .quote-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .quote-close {
+      border: none;
+      background: transparent;
+      color: #9ca3af;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .quote-body {
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+    .quote-meta {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 12px;
+    }
+    .quote-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+    .quote-next {
+      border-radius: 999px;
+      padding: 8px 16px;
+      font-size: 13px;
+      border: none;
+      cursor: pointer;
+      background: #4f46e5;
+      color: #f9fafb;
+    }
+
+    /* ---------------- 完成/刪除 Modal ---------------- */
+    #done-modal-overlay,
+    #delete-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 55;
+    }
+    .confirm-modal {
+      background:#ffffff;
+      border-radius: 20px;
+      padding: 24px 26px;
+      max-width: 360px;
+      width: 90%;
+      box-shadow: 0 20px 40px rgba(15,23,42,0.25);
+      text-align: center;
+    }
+    .confirm-img {
+      width: 140px;
+      height: 140px;
+      object-fit: contain;
+      margin-bottom: 12px;
+    }
+    .confirm-actions {
+      display:flex;
+      justify-content:flex-end;
+      gap:8px;
+      margin-top:8px;
+    }
+
+    /* ---------------- Footer ---------------- */
+    .site-footer {
+      border-top: 1px solid rgba(15,23,42,0.06);
+      background: #000000;
+    }
+    .footer-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 16px 20px 20px;
+      font-size: 13px;
+      color: #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    /* ================= RWD：平板 ================= */
+    @media (max-width: 1024px) {
+      .container {
+        max-width: 930px;
+      }
+      .hero-title {
+        font-size: 26px;
+      }
+      .hero-line,
+      #hero-sub {
+        font-size: 13px;
+      }
+      .tasks-grid.three-cols {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    /* ================= RWD：中小螢幕（平板直立 / 小筆電） ================= */
+    @media (max-width: 900px) {
+      .tasks-grid.three-cols,
+      .tasks-grid.two-cols {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .top-nav-inner {
+        padding: 10px 16px;
+      }
+    }
+
+    /* ================= RWD：手機 ================= */
+    @media (max-width: 768px) {
+
+      /* NavBar：上排品牌，第二排分頁，第三排心靈雞湯按鈕 */
+      .top-nav-inner {
+        padding: 8px 12px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+
+      .brand-block {
+        flex: 0 0 auto;
+      }
+
+      .nav-center {
+        order: 2;
+        flex: 0 0 auto;
+        min-width: 0;
+        display: flex;
+        justify-content: flex-start;
+        gap: 18px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+      .nav-center::-webkit-scrollbar {
+        height: 3px;
+      }
+      .nav-center::-webkit-scrollbar-thumb {
+        background: rgba(148,163,184,0.7);
+        border-radius: 999px;
+      }
+
+      .nav-right {
+        order: 3;
+        flex: 0 0 auto;
+      }
+
+      .quote-nav-btn {
+        width: 40%;
+        justify-content: center;
+        padding: 6px 10px;
+        font-size: 13px;
+        box-shadow: 0 3px 6px rgba(37, 99, 235, 0.2);
+      }
+
+      /* Hero 區改直向排版、字小一點 */
+      .hero-wrap {
+        flex-direction: column;
+        text-align: center;
+        padding-top: 24px;
+        padding-bottom: 24px;
+      }
+      .hero-sloth img {
+        width: 90px;
+        height: 90px;
+      }
+      .hero-text {
+        max-width: 100%;
+      }
+      .hero-title {
+        font-size: 24px;
+      }
+
+      /* 手機隱藏左右樹懶 */
+      .side-sloth {
+        display: none;
+      }
+
+      /* 卡片 / 表單 排版調整 */
+      .card {
+        padding: 18px 16px;
+        border-radius: 16px;
+      }
+      .form-row {
+        gap: 10px;
+        flex-direction: column;
+      }
+      .form-row > div {
+        min-width: 100%;
+      }
+
+      /* 名字那一排：手機改直向排 */
+      .name-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+      .name-row input#top-name-input {
+        flex: 1;
+        width: 100%;
+        max-width: 100%;
+      }
+      .name-btn {
+        align-self: flex-start;
+      }
+      .name-text {
+        text-align: left;
+        flex: unset;
+      }
+
+      /* 篩選列可以橫向滑動 */
+      .filter-row {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+      .filter-row::-webkit-scrollbar {
+        height: 4px;
+      }
+      .filter-row::-webkit-scrollbar-thumb {
+        background: rgba(148,163,184,0.7);
+        border-radius: 999px;
+      }
+
+      /* 任務卡：一欄 */
+      .tasks-grid.three-cols,
+      .tasks-grid.two-cols {
+        grid-template-columns: 1fr;
+      }
+
+      .task-footer-row {
+        align-items: flex-start;
+      }
+      .btn-row {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      /* 完成紀錄列表：手機版比較好讀 */
+      .event-item {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .event-time {
+        align-self: flex-end;
+      }
+    }
+
+    /* ================= RWD：小手機 ================= */
+    @media (max-width: 480px) {
+      body {
+        font-size: 14px;
+      }
+      .brand-title {
+        font-size: 18px;
+      }
+      .card-title {
+        font-size: 17px;
+      }
+      .hero-title {
+        font-size: 22px;
+      }
+      .hero-line,
+      #hero-sub {
+        font-size: 12px;
+      }
+
+      .btn,
+      button {
+        font-size: 13px;
+        padding: 9px 16px;
+      }
+      .btn-row {
+        gap: 4px;
+      }
+      .checkin-tag {
+        font-size: 12px;
+      }
+      .deadline {
+        font-size: 13px;
+      }
+      .task-title {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+<!-- 左右漂浮樹懶 -->
+<img src="{{ url_for('static', filename='img/sloth_side_left.png') }}"
+     alt="side sloth left" class="side-sloth side-sloth-left">
+<img src="{{ url_for('static', filename='img/sloth_side_right.png') }}"
+     alt="side sloth right" class="side-sloth side-sloth-right">
+
+<!-- NavBar -->
+<header class="top-nav">
+  <div class="top-nav-inner">
+    <div class="brand-block">
+      <div class="brand-title">腐爛指數</div>
+      <div class="brand-sub">ROT INDEX</div>
+    </div>
+
+    <nav class="nav-center">
+      <span class="nav-link active" data-page="home">首頁</span>
+      <span class="nav-link" data-page="tasks">任務清單</span>
+      <span class="nav-link" data-page="ranking">排行榜</span>
+      <span class="nav-link" data-page="history">完成紀錄</span>
+      <span class="nav-link" data-page="profile">個人</span>
+    </nav>
+
+    <div class="nav-right">
+      <button id="open-quote-modal" class="quote-nav-btn">
+        <span>來碗心靈雞湯</span><span>🍲</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<div class="page-wrapper">
+
+  <!-- --------- 首頁 --------- -->
+  <section id="page-home" class="page page-active">
+    <div class="container">
+
+      <!-- 使用者名字 / owner 設定 -->
+
+      <div class="card">
+        <form method="post" action="{{ url_for('set_owner') }}">
+          <label for="top-name-input" class="name-card-label">你的名字：</label>
+          <div class="name-row">
+            <input
+              type="text"
+              id="top-name-input"
+              name="owner"
+              value="{{ owner or '' }}"
+              placeholder="例如：柯柯、阿土、熬夜小天才">
+            
+            <button type="submit"
+                    id="set-user-btn"
+                    class="btn-primary name-btn">
+              切換 / 設定使用者
+            </button>
+
+            <span id="current-user-label" class="name-text">
+              目前使用者：
+              <span data-display-name>{{ owner or '朋友' }}</span>
+              · 下面清單都是你的專屬任務 🐿
+            </span>
+          </div>
+        </form>
+      </div>
+      <div class="hero-wrap">
+        <div class="hero-sloth">
+          <img id="hero-sloth-img"
+               src="{{ url_for('static', filename='img/logo_idle.png') }}"
+               data-hover="{{ url_for('static', filename='img/logo_wave.png') }}"
+               alt="樹懶監督員">
+        </div>
+        <div class="hero-text">
+          <h1 class="hero-title">接住你每一次的拖延</h1>
+          <p class="hero-line">
+            讓你的作業、考試、生活待辦，一點一滴「發酵」給你看。
+          </p>
+          <p id="hero-sub">
+            樹懶監督員今天會默默盯著你喔。
+          </p>
+        </div>
+      </div>
+
+      <!-- 新增任務 -->
+      <div class="card">
+        <div class="card-title-row">
+          <h2 class="card-title">新增待辦事項 ✏️</h2>
+        </div>
+        <p class="card-subtitle">
+          先把事情丟進清單裡，之後慢慢「發酵」成一個個成果。
+        </p>
+
+        <form method="post" action="{{ url_for('add_task') }}">
+          <div class="form-row">
+            <div>
+              <label for="title">
+                任務內容<span class="required-asterisk">*</span>
+              </label>
+              <input type="text" id="title" name="title" required
+                     placeholder="例如：第 3 單元英文單字、離散作業、洗衣服">
+            </div>
+          </div>
+          <div class="form-row">
+            <div>
+              <label for="category">
+                分類<span class="required-asterisk">*</span>
+              </label>
+              <select id="category" name="category" required>
+                <option value="homework">作業 📚</option>
+                <option value="exam">考試 📝</option>
+                <option value="life">生活 🌿</option>
+                <option value="habit">習慣 / 每天都要做 🔁</option>
+                <option value="other">其他 🌀</option>
+              </select>
+            </div>
+            <div>
+              <label for="deadline">截止時間（可選）</label>
+              <input type="datetime-local" id="deadline" name="deadline">
+            </div>
+            <div>
+              <label for="interval_days">（無期限）幾天要做一次</label>
+              <input type="number" id="interval_days" name="interval_days"
+                     placeholder="例如 1 或 3" min="1" max="30">
+              <div class="checkbox-row">
+                <input type="checkbox" id="no_deadline" name="no_deadline">
+                <label for="no_deadline">這是無期限 / 習慣型任務</label>
+              </div>
+              <div style="font-size:11px;color:#9ca3af;margin-top:3px;">
+                只對「無期限 / 習慣型」有作用，沒填預設為 1 天。
+              </div>
+            </div>
+            <div>
+              <label for="initial_rot">
+                一開始的腐爛度<span class="required-asterisk">*</span>
+              </label>
+              <select id="initial_rot" name="initial_rot" required>
+                <option value="0">0 - 完全新鮮 🍀</option>
+                <option value="30">30 - 有點在意 🌱</option>
+                <option value="50">50 - 有壓力了 ⏰</option>
+                <option value="70">70 - 開始臭臭了 🔥</option>
+                <option value="90">90 - 很糟糕 💢</option>
+                <option value="99">99 - 可以辦頭七 🚨</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-top: 10px; text-align: right;">
+            <button type="submit" class="btn-primary">新增任務 ✨</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- 任務清單（首頁） -->
+      {% if tasks %}
+      <div class="card">
+        <div class="card-title-row">
+          <h2 class="card-title">任務清單 📝</h2>
+        </div>
+        <p class="card-subtitle">用分類快速找到你現在想處理的任務。</p>
+
+        <div class="filter-row">
+          <span class="filter-label">篩選分類：</span>
+          <button type="button" class="filter-btn active" data-filter="all">
+            全部 ({{ total_tasks }})
+          </button>
+          <button type="button" class="filter-btn" data-filter="homework">
+            作業 📚 ({{ category_counts.get('homework', 0) }})
+          </button>
+          <button type="button" class="filter-btn" data-filter="exam">
+            考試 📝 ({{ category_counts.get('exam', 0) }})
+          </button>
+          <button type="button" class="filter-btn" data-filter="life">
+            生活 🌿 ({{ category_counts.get('life', 0) }})
+          </button>
+          <button type="button" class="filter-btn" data-filter="habit">
+            學習 / 習慣 🔁 ({{ category_counts.get('habit', 0) }})
+          </button>
+          <button type="button" class="filter-btn" data-filter="other">
+            其他 🌀 ({{ category_counts.get('other', 0) }})
+          </button>
+        </div>
+
+        <div class="tasks-grid three-cols">
+          {% for task in tasks %}
+          <div class="task-card" data-category="{{ task.category }}">
+            <div class="task-header">
+              <div class="task-title">{{ task.title }}</div>
+              <div class="badge
+                {% if task.category == 'homework' %}badge-homework
+                {% elif task.category == 'exam' %}badge-exam
+                {% elif task.category == 'life' %}badge-life
+                {% elif task.category == 'habit' %}badge-habit
+                {% else %}badge-other{% endif %}">
+                {% if task.category == "homework" %}作業 📚
+                {% elif task.category == "exam" %}考試 📝
+                {% elif task.category == "life" %}生活 🌿
+                {% elif task.category == "habit" %}習慣 🔁
+                {% else %}其他 🌀{% endif %}
+              </div>
+            </div>
+
+            <div class="deadline">
+              ⏱️ {{ task.deadline_str }}
+              {% if task.is_routine and task.interval_days %}
+              ｜ 每 {{ task.interval_days }} 天要做一次
+              {% endif %}
+            </div>
+
+            <div class="rot-row">
+              <div class="rot-emoji">{{ task.rot_emoji }}</div>
+              <div>
+                <div>{{ task.rot_message }}</div>
+                <div class="rot-level">
+                  腐爛度：{{ task.rot_level }}
+                  {% if task.initial_rot %}
+                  （起始 {{ task.initial_rot }}）
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            <div class="rot-strip rot-{{ task.rot_bucket }}"></div>
+
+            <div class="task-footer">
+              <div class="created-at-row">
+                建立於：{{ task.created_at }}
+              </div>
+
+              <div class="task-footer-row">
+                <div></div>
+                <div class="btn-row">
+                  <a href="{{ url_for('edit_task', task_id=task.id) }}" class="btn btn-warning">修改</a>
+                  <a href="{{ url_for('checkin_task', task_id=task.id) }}" class="btn btn-info">打卡</a>
+                  <a href="{{ url_for('view_task_checkins_by_task', task_id=task.id) }}" class="btn btn-secondary">紀錄</a>
+                </div>
+              </div>
+
+              <div class="task-footer-row">
+                <div>
+                  {% if task.checked_today %}
+                  <div class="checkin-tag checkin-done">今日已打卡 ✅</div>
+                  {% else %}
+                  <div class="checkin-tag checkin-miss">今日未打卡 ⚠️</div>
+                  {% endif %}
+                </div>
+                <div class="btn-row">
+                  <form method="post" action="{{ url_for('done_task', task_id=task.id) }}"
+                        style="display:inline;" class="done-form" data-title="{{ task.title }}">
+                    <button type="submit" class="btn btn-success">完成</button>
+                  </form>
+                  <form method="post" action="{{ url_for('delete_task', task_id=task.id) }}"
+                        class="delete-form" data-title="{{ task.title }}" style="display:inline;">
+                    <button type="submit" class="btn btn-danger">刪除</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="tasks-empty-hint">
+          目前這個分類還沒有任務，先在上面新增一個試試 ✏️
+        </div>
+      </div>
+      {% else %}
+      <div class="card" style="text-align:center;color:#9ca3af;">
+        目前還沒有任務，要不要先加一個「今天背 20 個單字」？📚
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- --------- 任務清單頁 --------- -->
+  <section id="page-tasks" class="page">
+    <div class="container">
+      {% if tasks %}
+      <div class="card">
+        <div class="card-title-row">
+          <h2 class="card-title">任務清單 📝</h2>
+        </div>
+        <p class="card-subtitle">用分類快速找到你現在想處理的任務。</p>
+
+        <div class="filter-row">
+          <span class="filter-label">篩選分類：</span>
+          <button type="button" class="filter-btn active" data-filter="all">
+            全部 ({{ total_tasks }})
+          </button>
+          <button type="button" class="filter-btn" data-filter="homework">
+            作業 📚 ({{ category_counts.get('homework', 0) }})
+          </button>
+          <button type="button" class="filter-btn" data-filter="exam">
+            考試 📝 ({{ category_counts.get('exam', 0) }})
+          </button>
+          <button type="button" class="filter-btn" data-filter="life">
+            生活 🌿 ({{ category_counts.get('life', 0) }})
+          </button>
+          <button type="button" class="filter-btn" data-filter="habit">
+            學習 / 習慣 🔁 ({{ category_counts.get('habit', 0) }})
+          </button>
+          <button type="button" class="filter-btn" data-filter="other">
+            其他 🌀 ({{ category_counts.get('other', 0) }})
+          </button>
+        </div>
+
+        <div class="tasks-grid three-cols">
+          {% for task in tasks %}
+          <div class="task-card" data-category="{{ task.category }}">
+            <div class="task-header">
+              <div class="task-title">{{ task.title }}</div>
+              <div class="badge
+                {% if task.category == 'homework' %}badge-homework
+                {% elif task.category == 'exam' %}badge-exam
+                {% elif task.category == 'life' %}badge-life
+                {% elif task.category == 'habit' %}badge-habit
+                {% else %}badge-other{% endif %}">
+                {% if task.category == "homework" %}作業 📚
+                {% elif task.category == "exam" %}考試 📝
+                {% elif task.category == "life" %}生活 🌿
+                {% elif task.category == "habit" %}習慣 🔁
+                {% else %}其他 🌀{% endif %}
+              </div>
+            </div>
+
+            <div class="deadline">
+              ⏱️ {{ task.deadline_str }}
+              {% if task.is_routine and task.interval_days %}
+              ｜ 每 {{ task.interval_days }} 天要做一次
+              {% endif %}
+            </div>
+
+            <div class="rot-row">
+              <div class="rot-emoji">{{ task.rot_emoji }}</div>
+              <div>
+                <div>{{ task.rot_message }}</div>
+                <div class="rot-level">
+                  腐爛度：{{ task.rot_level }}
+                  {% if task.initial_rot %}
+                  （起始 {{ task.initial_rot }}）
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            <div class="rot-strip rot-{{ task.rot_bucket }}"></div>
+
+            <div class="task-footer">
+              <div class="created-at-row">
+                建立於：{{ task.created_at }}
+              </div>
+
+              <div class="task-footer-row">
+                <div></div>
+                <div class="btn-row">
+                  <a href="{{ url_for('edit_task', task_id=task.id) }}" class="btn btn-warning">修改</a>
+                  <a href="{{ url_for('checkin_task', task_id=task.id) }}" class="btn btn-info">打卡</a>
+                  <a href="{{ url_for('view_task_checkins_by_task', task_id=task.id) }}" class="btn btn-secondary">紀錄</a>
+                </div>
+              </div>
+
+              <div class="task-footer-row">
+                <div>
+                  {% if task.checked_today %}
+                  <div class="checkin-tag checkin-done">今日已打卡 ✅</div>
+                  {% else %}
+                  <div class="checkin-tag checkin-miss">今日未打卡 ⚠️</div>
+                  {% endif %}
+                </div>
+                <div class="btn-row">
+                  <form method="post" action="{{ url_for('done_task', task_id=task.id) }}"
+                        style="display:inline;" class="done-form" data-title="{{ task.title }}">
+                    <button type="submit" class="btn btn-success">完成</button>
+                  </form>
+                  <form method="post" action="{{ url_for('delete_task', task_id=task.id) }}"
+                        class="delete-form" data-title="{{ task.title }}" style="display:inline;">
+                    <button type="submit" class="btn btn-danger">刪除</button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="tasks-empty-hint">
+          目前這個分類還沒有任務，先在上面新增一個試試 ✏️
+        </div>
+      </div>
+      {% else %}
+      <div class="card" style="text-align:center;color:#9ca3af;">
+        目前還沒有任務，要不要先加一個「今天背 20 個單字」？📚
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- --------- 排行榜頁 --------- -->
+  <section id="page-ranking" class="page">
+    <div class="container">
+      {% if top_rot_tasks %}
+      <div class="card">
+        <div class="card-title-row">
+          <h2 class="card-title">最臭任務排行榜 🏆</h2>
+        </div>
+        <p class="card-subtitle">依照目前腐爛度由高到低排序。</p>
+        <ol class="rank-list">
+          {% for t in top_rot_tasks %}
+          <li class="rank-item">
+            <div class="rank-medal">
+              {% if loop.index == 1 %}🥇
+              {% elif loop.index == 2 %}🥈
+              {% elif loop.index == 3 %}🥉
+              {% else %}{{ loop.index }}{% endif %}
+            </div>
+            <div class="rank-main">
+              <div class="rank-title">{{ t.title }}</div>
+              <div class="rank-score">腐爛度 {{ t.rot_level }}</div>
+            </div>
+          </li>
+          {% endfor %}
+        </ol>
+      </div>
+      {% else %}
+      <div class="card" style="text-align:center;color:#9ca3af;">
+        還沒有任何任務可以排名，先去新增幾個吧！🌱
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- --------- 完成紀錄頁 --------- -->
+  <section id="page-history" class="page">
+    <div class="container">
+      {% if events %}
+      <div class="card">
+        <div class="card-title-row">
+          <h2 class="card-title">最近操作紀錄 📜</h2>
+        </div>
+        <p class="card-subtitle">從 Redis Streams 讀出最近 10 筆「新增 / 修改 / 刪除 / 打卡」。</p>
+        <ul class="events-list">
+          {% for e in events %}
+          <li class="event-item">
+            <span class="event-text">{{ e.text }}</span>
+            <span class="event-time">{{ e.time_str }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      {% if done_events %}
+      <div class="card">
+        <div class="card-title-row">
+          <h2 class="card-title">完成任務紀錄 ✅</h2>
+        </div>
+        <p class="card-subtitle">最近 10 筆已完成的任務（按「完成」時記錄）。</p>
+        <ul class="events-list">
+          {% for e in done_events %}
+          <li class="event-item">
+            <span class="event-text">{{ e.text }}</span>
+            <span class="event-time">{{ e.time_str }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- --------- 個人頁面 --------- -->
+  <section id="page-profile" class="page">
+    <div class="container">
+      <div class="card">
+        <div class="card-title-row">
+          <h2 class="card-title">嗨，<span data-display-name>朋友</span>！</h2>
+        </div>
+        <p class="card-subtitle">
+          從今天開始，樹懶監督員會叮著你的腐爛指數。
+        </p>
+        <p class="profile-hint">
+          小提醒：這個名字只會存在這台裝置裡，換電腦或清除瀏覽資料就會被重置。
+        </p>
+
+        <div class="form-row" style="margin-top:16px;">
+          <div style="flex:1;">
+            <label for="profile-name-input">你的名字</label>
+            <input type="text" id="profile-name-input" placeholder="例如：柯柯、阿土、熬夜小天才">
+          </div>
+          <div style="flex:0 0 auto;display:flex;align-items:flex-end;">
+            <button id="save-name-btn" class="btn-primary">儲存</button>
+          </div>
+        </div>
+
+        <p class="personal-note">
+          現在紀錄的名字是：
+          <span data-display-name>朋友</span> · 樹懶監督員今天會默默盯著你喔。
+        </p>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Footer -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <span>腐爛指數 Rot Index · 2025</span>
+    <span>慢一點做沒關係，但別忘了開始。</span>
+  </div>
+</footer>
+
+<!-- 心靈雞湯 Modal -->
+<div class="quote-backdrop" id="quote-backdrop">
+  <div class="quote-modal">
+    <div class="quote-header">
+      <div class="quote-title">腐爛心靈雞湯 · BETA</div>
+      <button class="quote-close" id="quote-close">&times;</button>
+    </div>
+    <div class="quote-body" id="quote-text"></div>
+    <div class="quote-meta">
+      來自：腐爛指數 Rot Index · 樹懶監督員
+    </div>
+    <div class="quote-actions">
+      <button class="quote-next" id="quote-next">再來一碗 🥣</button>
+    </div>
+  </div>
+</div>
+
+<!-- 完成任務 Modal -->
+<div id="done-modal-overlay">
+  <div class="confirm-modal">
+    <img src="{{ url_for('static', filename='img/sloth_congrats.png') }}"
+         alt="樹懶為你鼓掌" class="confirm-img">
+    <h2 style="margin:0 0 6px;font-size:20px;">真的要完成這個任務嗎？</h2>
+    <p id="done-modal-text" style="margin:0 0 16px;font-size:14px;color:#6b7280;">
+      樹懶正在為你鼓掌，確認之後就把它從清單移到「完成任務紀錄」喔！
+    </p>
+    <div class="confirm-actions">
+      <button type="button" id="done-cancel-btn" class="btn-secondary">先等等</button>
+      <button type="button" id="done-confirm-btn" class="btn btn-success">我完成了 🥳</button>
+    </div>
+  </div>
+</div>
+
+<!-- 刪除任務 Modal -->
+<div id="delete-modal-overlay">
+  <div class="confirm-modal">
+    <img src="{{ url_for('static', filename='img/sloth_delete.png') }}"
+         alt="樹懶疑惑地看著你" class="confirm-img">
+    <h2 style="margin:0 0 6px;font-size:20px;">真的要刪除這個任務嗎？</h2>
+    <p id="delete-modal-text" style="margin:0 0 16px;font-size:14px;color:#6b7280;">
+      刪除之後就不會再出現在清單裡了（完成紀錄也不會有喔）。
+    </p>
+    <div class="confirm-actions">
+      <button type="button" id="delete-cancel-btn" class="btn-secondary">我再想想</button>
+      <button type="button" id="delete-confirm-btn" class="btn btn-danger">還是刪掉好了 😵</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ---------- Page 切換 ----------
+  const navLinks = document.querySelectorAll('.nav-link');
+  const pages = document.querySelectorAll('.page');
+
+  navLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const pageName = link.dataset.page;
+      pages.forEach(p => p.classList.remove('page-active'));
+      document.getElementById('page-' + pageName).classList.add('page-active');
+
+      navLinks.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  // ---------- 左右漂浮樹懶 top 隨機 ----------
+  document.querySelectorAll('.side-sloth').forEach(el => {
+    const min = 18, max = 70;
+    const top = min + Math.random() * (max - min);
+    el.style.top = top + 'vh';
+  });
+
+  // ---------- 中央樹懶 hover 換圖 ----------
+  const heroSloth = document.getElementById('hero-sloth-img');
+  if (heroSloth) {
+    const idleSrc = heroSloth.getAttribute('src');
+    const hoverSrc = heroSloth.dataset.hover;
+    heroSloth.addEventListener('mouseenter', () => {
+      if (hoverSrc) heroSloth.src = hoverSrc;
+    });
+    heroSloth.addEventListener('mouseleave', () => {
+      heroSloth.src = idleSrc;
+    });
+  }
+
+  // ---------- 新增任務：截止時間 / 無期限 ----------
+  const noDeadlineCheckbox = document.getElementById('no_deadline');
+  const deadlineInput = document.getElementById('deadline');
+  const intervalInput = document.getElementById('interval_days');
+
+  function updateDeadlineState() {
+    if (!noDeadlineCheckbox || !deadlineInput || !intervalInput) return;
+    const hasDeadline = deadlineInput.value !== "";
+    if (hasDeadline) {
+      noDeadlineCheckbox.checked = false;
+      noDeadlineCheckbox.disabled = true;
+      intervalInput.value = "";
+      intervalInput.disabled = true;
+      deadlineInput.disabled = false;
+    } else {
+      noDeadlineCheckbox.disabled = false;
+      if (noDeadlineCheckbox.checked) {
+        deadlineInput.value = "";
+        deadlineInput.disabled = true;
+        intervalInput.disabled = false;
+      } else {
+        deadlineInput.disabled = false;
+        intervalInput.value = "";
+        intervalInput.disabled = true;
+      }
+    }
+  }
+
+  if (noDeadlineCheckbox && deadlineInput && intervalInput) {
+    noDeadlineCheckbox.addEventListener('change', updateDeadlineState);
+    deadlineInput.addEventListener('change', updateDeadlineState);
+    deadlineInput.addEventListener('input', updateDeadlineState);
+    updateDeadlineState();
+  }
+
+  // ---------- 完成任務 Modal ----------
+  const doneForms = document.querySelectorAll('.done-form');
+  const doneModalOverlay = document.getElementById('done-modal-overlay');
+  const doneConfirmBtn = document.getElementById('done-confirm-btn');
+  const doneCancelBtn = document.getElementById('done-cancel-btn');
+  const doneModalText = document.getElementById('done-modal-text');
+  let currentDoneForm = null;
+
+  function openDoneModal(title) {
+    if (doneModalText) {
+      doneModalText.textContent = `樹懶提醒你：確定要把「${title}」標記為已完成嗎？`;
+    }
+    doneModalOverlay.style.display = 'flex';
+  }
+  function closeDoneModal() {
+    doneModalOverlay.style.display = 'none';
+    currentDoneForm = null;
+  }
+
+  doneForms.forEach(form => {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const title = this.dataset.title || '這個任務';
+      currentDoneForm = this;
+      openDoneModal(title);
+    });
+  });
+
+  if (doneCancelBtn) {
+    doneCancelBtn.addEventListener('click', closeDoneModal);
+  }
+  if (doneConfirmBtn) {
+    doneConfirmBtn.addEventListener('click', () => {
+      if (currentDoneForm) currentDoneForm.submit();
+      closeDoneModal();
+    });
+  }
+  if (doneModalOverlay) {
+    doneModalOverlay.addEventListener('click', (e) => {
+      if (e.target === doneModalOverlay) closeDoneModal();
+    });
+  }
+
+  // ---------- 刪除任務 Modal ----------
+  const deleteForms = document.querySelectorAll('.delete-form');
+  const deleteModalOverlay = document.getElementById('delete-modal-overlay');
+  const deleteConfirmBtn = document.getElementById('delete-confirm-btn');
+  const deleteCancelBtn = document.getElementById('delete-cancel-btn');
+  const deleteModalText = document.getElementById('delete-modal-text');
+  let currentDeleteForm = null;
+
+  function openDeleteModal(title) {
+    if (deleteModalText) {
+      deleteModalText.textContent =
+        `樹懶小聲問：真的要把「${title}」整個刪掉嗎？（之後就找不到囉）`;
+    }
+    deleteModalOverlay.style.display = 'flex';
+  }
+  function closeDeleteModal() {
+    deleteModalOverlay.style.display = 'none';
+    currentDeleteForm = null;
+  }
+
+  deleteForms.forEach(form => {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      const title = this.dataset.title || '這個任務';
+      currentDeleteForm = this;
+      openDeleteModal(title);
+    });
+  });
+
+  if (deleteCancelBtn) {
+    deleteCancelBtn.addEventListener('click', closeDeleteModal);
+  }
+  if (deleteConfirmBtn) {
+    deleteConfirmBtn.addEventListener('click', () => {
+      if (currentDeleteForm) currentDeleteForm.submit();
+      closeDeleteModal();
+    });
+  }
+  if (deleteModalOverlay) {
+    deleteModalOverlay.addEventListener('click', (e) => {
+      if (e.target === deleteModalOverlay) closeDeleteModal();
+    });
+  }
+
+  // ---------- 任務分類篩選 & 空清單提示 ----------
+  const filterButtons = document.querySelectorAll('.filter-btn[data-filter]');
+  const taskCards = document.querySelectorAll('.task-card');
+  const tasksGrids = document.querySelectorAll('.tasks-grid');
+  const emptyHints = document.querySelectorAll('.tasks-empty-hint');
+
+  tasksGrids.forEach(grid => {
+    grid.classList.add('three-cols');
+  });
+
+  function updateEmptyHint() {
+    if (!emptyHints.length) return;
+    let anyVisible = false;
+    taskCards.forEach(card => {
+      if (card.style.display !== 'none') {
+        anyVisible = true;
+      }
+    });
+    emptyHints.forEach(hint => {
+      hint.style.display = anyVisible ? 'none' : 'block';
+    });
+  }
+
+  filterButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const filter = btn.dataset.filter || 'all';
+
+      filterButtons.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      taskCards.forEach(card => {
+        const category = card.dataset.category || 'other';
+        if (filter === 'all' || filter === category) {
+          card.style.display = '';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      tasksGrids.forEach(grid => {
+        grid.classList.remove('two-cols', 'three-cols');
+        grid.classList.add('three-cols');
+      });
+
+      updateEmptyHint();
+    });
+  });
+
+  // ---------- 心靈雞湯 ----------
+  const lazyQuotes = [
+    "舒服是留給死人的，交作業的是活人。你現在還活著，快去寫。🧟‍♀️",
+    "你不是沒有時間，你只是把時間全部捐給了手機螢幕。📱",
+    "再滑一下沒關係啦——你的腐爛度這麼高，也不差這 5 分鐘。（誤）",
+    "先做 10 分鐘就好，不想做再爛回去也可以。但通常你會做超過。⏱️",
+    "如果未來的你可以回訊息，他現在會說：拜託快點開始，我真的快爆掉了。💥",
+    "拖延的不是事情，是你原本可以很輕鬆的自己。給他一點尊重。🤝"
+  ];
+  function randomQuote() {
+    const idx = Math.floor(Math.random() * lazyQuotes.length);
+    return lazyQuotes[idx];
+  }
+  const quoteBackdrop = document.getElementById("quote-backdrop");
+  const btnOpenQuote = document.getElementById("open-quote-modal");
+  const btnCloseQuote = document.getElementById("quote-close");
+  const btnNextQuote = document.getElementById("quote-next");
+  const quoteTextEl = document.getElementById("quote-text");
+
+  if (btnOpenQuote && quoteBackdrop) {
+    btnOpenQuote.addEventListener("click", () => {
+      quoteTextEl.textContent = randomQuote();
+      quoteBackdrop.classList.add("show");
+    });
+  }
+  if (btnCloseQuote) {
+    btnCloseQuote.addEventListener("click", () => {
+      quoteBackdrop.classList.remove("show");
+    });
+  }
+  if (btnNextQuote) {
+    btnNextQuote.addEventListener("click", () => {
+      quoteTextEl.textContent = randomQuote();
+    });
+  }
+  if (quoteBackdrop) {
+    quoteBackdrop.addEventListener("click", (e) => {
+      if (e.target === quoteBackdrop) quoteBackdrop.classList.remove("show");
+    });
+  }
+  // ---------- 使用者名稱：首頁 + 個人 同步 ----------
+  const NAME_KEY = 'rot_user_name';
+  const SERVER_OWNER = "{{ owner or '' }}";
+
+  // 首頁上面那一排
+  const topNameInput = document.getElementById('top-name-input');
+  const setUserBtn = document.getElementById('set-user-btn');
+  const currentUserLabel = document.getElementById('current-user-label');
+
+  // 個人頁那張卡片
+  const profileNameInput = document.getElementById('profile-name-input');
+  const saveNameBtn = document.getElementById('save-name-btn');
+  const displayNameEls = document.querySelectorAll('[data-display-name]');
+  const heroSubEl = document.getElementById('hero-sub');
+  const personalNoteEl = document.querySelector('.personal-note');
+
+  function getStoredName() {
+    const fromLocal = localStorage.getItem(NAME_KEY);
+    if (fromLocal && fromLocal.trim()) return fromLocal;
+    return SERVER_OWNER;
+  }
+
+  function applyNameToUI(name) {
+    const trimmed = (name || '').trim();
+    const safe = trimmed || '朋友';
+
+    // 同步兩個輸入框
+    if (topNameInput) topNameInput.value = trimmed;
+    if (profileNameInput) profileNameInput.value = trimmed;
+
+    // 首頁右邊那句
+    if (currentUserLabel) {
+      currentUserLabel.innerHTML =
+        `目前使用者：<span data-display-name>${safe}</span> · 下面清單都是你的專屬任務 🐿`;
+    }
+
+    // 其他需要顯示名字的地方（個人頁 title、下面一句話）
+    displayNameEls.forEach(el => el.textContent = safe);
+
+    // Hero 底下那句話
+    if (heroSubEl) {
+      heroSubEl.textContent = trimmed
+        ? `${safe}，樹懶監督員今天會默默盯著你喔。`
+        : '樹懶監督員今天會默默盯著你喔。';
+    }
+
+    // 個人頁「現在紀錄的名字是...」那行
+    if (personalNoteEl) {
+      personalNoteEl.style.display = trimmed ? 'block' : 'none';
+    }
+  }
+
+  function saveNameToLocal(name) {
+    const trimmed = (name || '').trim();
+    if (trimmed) {
+      localStorage.setItem(NAME_KEY, trimmed);
+    } else {
+      localStorage.removeItem(NAME_KEY);
+    }
+  }
+
+  // 進入頁面時，先用 localStorage / server 的名字套 UI
+  applyNameToUI(getStoredName());
+
+  // 首頁那顆「切換 / 設定使用者」：
+  // 送出 form 的同時，順便把名字記在 localStorage
+  if (setUserBtn && topNameInput) {
+    setUserBtn.addEventListener('click', () => {
+      saveNameToLocal(topNameInput.value);
+      // 不阻止預設行為，讓表單照常 POST 到 /set_owner
+    });
+  }
+
+  // 個人頁面的「儲存」：只更新 localStorage + 畫面
+  if (saveNameBtn && profileNameInput) {
+    saveNameBtn.addEventListener('click', () => {
+      saveNameToLocal(profileNameInput.value);
+      applyNameToUI(profileNameInput.value);
+      alert("已更新名稱，下次回到首頁也會套用這個名字喔！");
+    });
+  }
+
+</script>
+</body>
+</html>

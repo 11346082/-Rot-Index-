@@ -1,0 +1,9 @@
+# 不要上傳環境變數
+.env
+
+# Python 產生的暫存
+__pycache__/
+*.pyc
+
+# VSCode 設定檔（如果有）
+.vscode/

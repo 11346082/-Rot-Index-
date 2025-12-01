@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>打卡紀錄 - 拖延腐爛清單</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Noto Serif TC', serif;
+      background: #f3f4f6;
+      margin: 0;
+    }
+    .container {
+      max-width: 960px;
+      margin: 40px auto;
+      padding: 0 20px 40px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 24px 26px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+    }
+    h1 {
+      font-size: 24px;
+      margin: 0 0 6px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 20px;
+    }
+    .record-list {
+      list-style: none;
+      padding-left: 0;
+      margin: 0;
+    }
+    .record-item {
+      padding: 6px 0;              /* 原本 12，改小一半 */
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .record-time-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;          /* 原本 4，改成 2 讓時間跟文字更靠近 */
+    }
+
+    .record-icon {
+      font-size: 18px;
+    }
+
+    .record-time {
+      font-size: 13px;
+      color: #9ca3af;
+    }
+
+    .record-note {
+      font-size: 14px;
+      color: #374151;
+      margin-top: 15px;
+      margin-bottom: 15px;
+      line-height: 1.4;
+    }
+
+
+    .empty {
+      font-size: 14px;
+      color: #9ca3af;
+      margin-top: 4px;
+    }
+    .actions {
+      margin-top: 20px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .btn {
+      border: none;
+      border-radius: 999px;
+      padding: 9px 18px;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: 'Noto Serif TC', serif;
+      text-decoration: none;
+      background: #e5e7eb;
+      color: #374151;
+    }
+    .btn:hover {
+      opacity: .9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>📝「{{ task_title }}」的打卡紀錄</h1>
+      <p class="subtitle">只顯示這個任務曾經打卡的時間與內容。</p>
+
+      {% if records %}
+        <ul class="record-list">
+          {% for r in records %}
+            <li class="record-item">
+              <div class="record-time-row">
+                <span class="record-icon">✍️</span>
+                <span class="record-time">{{ r.time_str }}</span>
+              </div>
+              <div class="record-note">
+                {% if r.note %}{{ r.note }}{% else %}（沒有留下備註）{% endif %}
+              </div>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="empty">目前尚未打卡過這個任務 ✨</p>
+      {% endif %}
+
+      <div class="actions">
+        <a href="{{ url_for('index') }}" class="btn">回到清單</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
