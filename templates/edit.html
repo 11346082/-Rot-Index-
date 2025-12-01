@@ -159,11 +159,9 @@
                     </label>
                     <select id="initial_rot" name="initial_rot" required>
                         <option value="0"  {% if task.initial_rot == 0 %}selected{% endif %}>0 - 完全新鮮 🍀</option>
-                        <option value="30" {% if task.initial_rot == 30 %}selected{% endif %}>30 - 有點在意 🌱</option>
-                        <option value="50" {% if task.initial_rot == 50 %}selected{% endif %}>50 - 有壓力了 ⏰</option>
-                        <option value="70" {% if task.initial_rot == 70 %}selected{% endif %}>70 - 開始臭臭了 🔥</option>
-                        <option value="90" {% if task.initial_rot == 90 %}selected{% endif %}>90 - 很糟糕 💢</option>
-                        <option value="99" {% if task.initial_rot == 99 %}selected{% endif %}>99 - 可以辦頭七 🚨</option>
+                        <option value="30" {% if task.initial_rot == 30 %}selected{% endif %}>30 - 微微發酵中 🌱</option>
+                        <option value="60" {% if task.initial_rot == 60 %}selected{% endif %}>60 - 腐爛味出來了 🤢</option>
+                        <option value="90" {% if task.initial_rot == 90 %}selected{% endif %}>90 - 完全爛掉了 🧟‍♂️</option>
                     </select>
                 </div>
             </div>
