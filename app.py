@@ -14,6 +14,7 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret")
 
 # Redis URL 從環境變數來
 REDIS_URL = os.getenv("REDIS_URL")
+#print(">>> 使用的 REDIS_URL：", REDIS_URL)
 
 if not REDIS_URL:
     raise RuntimeError("環境變數 REDIS_URL 沒有設定，請確認 .env 檔")
