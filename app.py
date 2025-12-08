@@ -249,6 +249,8 @@ def get_current_owner():
     return session.get("owner_key"), session.get("display_name")
 
 
+
+
 # -----------------------------------------------------
 # 登入頁 / 根路徑
 # -----------------------------------------------------
@@ -261,6 +263,16 @@ def root():
     owner_key, display_name = get_current_owner()
     if owner_key:
         return redirect(url_for("index"))
+    return redirect(url_for("login"))
+
+# -----------------------------------------------------
+# 登出 / 清空登入狀態
+# -----------------------------------------------------
+@app.route("/logout", methods=["POST"])
+def logout():
+    # 清掉 session 裡的 owner_key / display_name 等等
+    session.clear()
+    # 回到登入頁
     return redirect(url_for("login"))
 
 

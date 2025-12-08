@@ -974,7 +974,7 @@
   <!-- --------- 首頁 --------- -->
   <section id="page-home" class="page page-active">
     <div class="container">
-      
+
       <div class="hero-wrap">
         <div class="hero-sloth">
           <img id="hero-sloth-img"
@@ -1398,6 +1398,16 @@
             趁現在去首頁檢查看看，還有什麼一直被你假裝沒看到的事，先加一個進來吧。📝
           </p>
         {% endif %}
+
+        <!-- 登出 / 切換使用者按鈕 -->
+        <div style="margin-top:16px; text-align:right;">
+          <form method="post" action="{{ url_for('logout') }}">
+            <button type="submit" class="btn-secondary">
+              登出 / 切換使用者
+            </button>
+          </form>
+        </div>
+        
       </div>
     </div>
   </section>
