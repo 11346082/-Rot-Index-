@@ -974,38 +974,7 @@
   <!-- --------- 首頁 --------- -->
   <section id="page-home" class="page page-active">
     <div class="container">
-
-      <!-- 使用者登入（名字 + 密語） -->
-      <div class="card">
-        <form method="post" action="{{ url_for('set_owner') }}">
-          <label for="top-name-input" class="name-card-label">登入你的專屬清單：</label>
-          <div class="name-row">
-            <input
-              type="text"
-              id="top-name-input"
-              name="owner"
-              value="{{ owner or '' }}"
-              placeholder="名字：例如 柯柯、阿土、熬夜小天才">
-            <input
-              type="password"
-              id="top-secret-input"
-              name="secret"
-              placeholder="密語（類似密碼，不要跟別人說）"
-              required>
-            <button type="submit"
-                    id="set-user-btn"
-                    class="btn-primary name-btn">
-              登入 / 切換使用者
-            </button>
-          </div>
-
-          <!-- 目前使用者：移到下面，保留一句話就好 -->
-          <p id="current-user-label" class="name-text" style="margin-top:8px;">
-            目前使用者：{{ owner or '尚未登入' }}{% if owner %} · 下面清單都是你的專屬任務 🐿{% endif %}
-          </p>
-        </form>
-      </div>
-
+      
       <div class="hero-wrap">
         <div class="hero-sloth">
           <img id="hero-sloth-img"

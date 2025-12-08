@@ -3,7 +3,7 @@ import redis
 import time
 from datetime import datetime, date
 import os
-from dotenv import load_dotenv  # ⬅ 新增這行
+from dotenv import load_dotenv  # ⬅ 讀取 .env
 
 load_dotenv()  # ⬅ 讀取 .env
 
@@ -14,13 +14,14 @@ app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret")
 
 # Redis URL 從環境變數來
 REDIS_URL = os.getenv("REDIS_URL")
-#print(">>> 使用的 REDIS_URL：", REDIS_URL)
+# print(">>> 使用的 REDIS_URL：", REDIS_URL)
 
 if not REDIS_URL:
     raise RuntimeError("環境變數 REDIS_URL 沒有設定，請確認 .env 檔")
 
 # 連線到雲端 Redis
 r = redis.from_url(REDIS_URL, decode_responses=True)
+
 
 # -----------------------------------------------------
 # 工具函式
@@ -125,23 +126,19 @@ def calc_rot_info(created_at, deadline_ts, is_routine,
     if level > 99:
         level = 99
 
-    # emoji + 毒雞湯 + 顏色 bucket
+    # emoji + 毒雞湯 + 顏色 bucket（修成 0 / 30 / 60 / 90 四階）
     if level < 30:
         emoji = "🍀"
         message = "完全新鮮，現在開始剛剛好！"
         bucket = "fresh"
-    elif level < 40:
+    elif level < 60:
         emoji = "🌱"
         message = "半熟半爛、還救得回來！"
         bucket = "mild"
-    elif level < 70:
+    elif level < 90:
         emoji = "🍄"
         message = "楞著幹嘛？還不快去做！"
         bucket = "medium"
-    elif level < 100:
-        emoji = "💥"
-        message = "腐爛爆表沒救了，就你最會拖！"
-        bucket = "serious"
     elif level < 99:
         emoji = "💥"
         message = "腐爛爆表沒救了，就你最會拖！"
@@ -253,6 +250,32 @@ def get_current_owner():
 
 
 # -----------------------------------------------------
+# 登入頁 / 根路徑
+# -----------------------------------------------------
+@app.route("/")
+def root():
+    """
+    進到根網址先來登入頁，
+    如果已經登入就直接跳首頁 /home
+    """
+    owner_key, display_name = get_current_owner()
+    if owner_key:
+        return redirect(url_for("index"))
+    return redirect(url_for("login"))
+
+
+@app.route("/login")
+def login():
+    """
+    顯示登入畫面（輸入名字 + 密語）
+    """
+    owner_key, display_name = get_current_owner()
+    if owner_key:
+        return redirect(url_for("index"))
+    return render_template("login.html")
+
+
+# -----------------------------------------------------
 # 設定 / 切換使用者（名字 + 密語）
 # -----------------------------------------------------
 @app.route("/set_owner", methods=["POST"])
@@ -263,45 +286,54 @@ def set_owner():
     secret = request.form.get("secret", "").strip()
 
     if not name:
+        # 如果沒填名字就先用「匿名」，但還是會被唯一限制擋下來
         name = "匿名"
 
-    # 沒密語就不讓登入（前端也會擋一次，這裡再保險）
     if not secret:
-        return redirect(url_for("index"))
+        # 沒填密語 → 回登入頁，順便帶錯誤訊息
+        return render_template(
+            "login.html",
+            error="請輸入密語（類似密碼）。",
+            last_name=name,
+        )
 
-    # 真正用來分資料的 key：名字 + 密語
+    # Redis 裡用 user:<name> 來記「這個名字的密語」
+    user_key = f"user:{name}"
+    stored_secret = r.get(user_key)
+
+    if stored_secret is None:
+        # 第一次使用這個名字 → 註冊並綁定密語
+        r.set(user_key, secret)
+    else:
+        # 名字已存在，但密語不同 → 不允許重複名字
+        if stored_secret != secret:
+            return render_template(
+                "login.html",
+                error="這個名字已經被使用，密語不正確。請輸入正確密語或換一個名字。",
+                last_name=name,
+            )
+
+    # 真正用來分資料的 key：名字 + 密語（保持原本格式，舊資料不會壞掉）
     owner_key = f"{name}#{secret}"
 
     # 寫入 session
     session["owner_key"] = owner_key      # 後端 / Redis 用
     session["display_name"] = name        # 前端顯示用
 
+    # 登入成功 → 去首頁 /home
     return redirect(url_for("index"))
 
 
 # -----------------------------------------------------
-# 首頁
+# 首頁（登入後）
 # -----------------------------------------------------
-@app.route("/")
+@app.route("/home")
 def index():
     owner_key, display_name = get_current_owner()
 
-    # 如果還沒登入，就先顯示空清單，請他填名字 + 密語
+    # 如果還沒登入，一律丟回登入頁
     if not owner_key:
-        categories = ["homework", "exam", "life", "habit", "other"]
-        category_counts = {c: 0 for c in categories}
-        return render_template(
-            "index.html",
-            tasks=[],
-            rescue_task=None,
-            queue_count=0,
-            top_rot_tasks=[],
-            category_counts=category_counts,
-            total_tasks=0,
-            events=[],
-            done_events=[],
-            owner=None,
-        )
+        return redirect(url_for("login"))
 
     # 讀出所有任務 ID（所有人共用 list，等等用 owner_key 過濾）
     task_ids = r.lrange("tasks", 0, -1)
