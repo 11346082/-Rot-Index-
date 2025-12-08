@@ -2,9 +2,14 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8">
+  <!-- 一定要加這行，手機才會用正確寬度顯示 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>打卡紀錄 - 拖延腐爛清單</title>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
       font-family: 'Noto Serif TC', serif;
       background: #f3f4f6;
@@ -12,7 +17,7 @@
     }
     .container {
       max-width: 960px;
-      margin: 40px auto;
+      margin: 32px auto;
       padding: 0 20px 40px;
     }
     .card {
@@ -36,35 +41,29 @@
       margin: 0;
     }
     .record-item {
-      padding: 6px 0;              /* 原本 12，改小一半 */
+      padding: 8px 0;
       border-bottom: 1px solid #e5e7eb;
     }
-
     .record-time-row {
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-bottom: 2px;          /* 原本 4，改成 2 讓時間跟文字更靠近 */
+      margin-bottom: 4px;
     }
-
     .record-icon {
       font-size: 18px;
     }
-
     .record-time {
       font-size: 13px;
       color: #9ca3af;
     }
-
     .record-note {
       font-size: 14px;
       color: #374151;
-      margin-top: 15px;
-      margin-bottom: 15px;
-      line-height: 1.4;
+      margin-top: 4px;
+      margin-bottom: 4px;
+      line-height: 1.5;
     }
-
-
     .empty {
       font-size: 14px;
       color: #9ca3af;
@@ -88,6 +87,40 @@
     }
     .btn:hover {
       opacity: .9;
+    }
+
+    /* =========== 手機 RWD =========== */
+    @media (max-width: 768px) {
+      .container {
+        margin: 16px auto 24px;
+        padding: 0 12px 24px;
+      }
+      .card {
+        padding: 18px 16px 20px;
+        border-radius: 16px;
+      }
+      h1 {
+        font-size: 18px;
+      }
+      .subtitle {
+        font-size: 12px;
+      }
+      .record-note {
+        font-size: 13px;
+      }
+      .record-time {
+        font-size: 12px;
+      }
+      .actions {
+        margin-top: 16px;
+        justify-content: center;
+      }
+      .btn {
+        width: 100%;
+        text-align: center;
+        padding: 10px 0;
+        font-size: 14px;
+      }
     }
   </style>
 </head>
