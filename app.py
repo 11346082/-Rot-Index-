@@ -330,6 +330,14 @@ def set_owner():
             last_name=name,
         )
 
+    # ★★★ 新增：密語至少 4 個字 ★★★
+    if len(secret) < 4:
+        return render_template(
+            "login.html",
+            error="密語至少要 4 個字，請重新輸入。",
+            last_name=name,
+        )
+
     # Redis 裡用 user:<name> 來記「這個名字的密語」
     user_key = f"user:{name}"
     stored_secret = r.get(user_key)
@@ -355,6 +363,7 @@ def set_owner():
 
     # 登入成功 → 去首頁 /home
     return redirect(url_for("index"))
+
 
 
 # -----------------------------------------------------
