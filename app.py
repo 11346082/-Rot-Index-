@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, session
 import redis
 import time
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 import os
 from dotenv import load_dotenv  # ⬅ 讀取 .env
 
@@ -22,6 +22,9 @@ if not REDIS_URL:
 # 連線到雲端 Redis
 r = redis.from_url(REDIS_URL, decode_responses=True)
 
+# 統一用台灣時間（UTC+8）
+TZ = timezone(timedelta(hours=8))
+
 
 # -----------------------------------------------------
 # 工具函式
@@ -30,18 +33,18 @@ def calc_rot_info(created_at, deadline_ts, is_routine,
                   initial_rot=0, interval_days=0, last_checkin_ts=None):
     """
     算目前腐爛度 + emoji + 毒雞湯 + 顏色 bucket
-    - created_at / deadline_ts / last_checkin_ts 可能是字串，要做容錯
-    - 無期限任務會用 interval_days + last_checkin_ts 來判斷
+    現在只會出現 0 / 30 / 60 / 90 四個等級
     """
     now = time.time()
 
-    # created_at 轉成 timestamp
+    # created_at 轉成 timestamp（用台灣時間）
     try:
         created_at = float(created_at)
     except (TypeError, ValueError):
         if isinstance(created_at, str) and "T" in created_at:
             try:
                 dt = datetime.strptime(created_at, "%Y-%m-%dT%H:%M:%S")
+                dt = dt.replace(tzinfo=TZ)
                 created_at = dt.timestamp()
             except Exception:
                 created_at = now
@@ -66,18 +69,23 @@ def calc_rot_info(created_at, deadline_ts, is_routine,
     if interval_days <= 0:
         interval_days = 1  # 預設 1 天
 
-    # initial_rot
+    # -------- initial_rot 也強制變成 0 / 30 / 60 / 90 --------
     try:
         initial_rot = int(initial_rot)
     except ValueError:
         initial_rot = 0
-    if initial_rot < 0:
+
+    if initial_rot <= 0:
         initial_rot = 0
-    if initial_rot > 99:
-        initial_rot = 99
+    elif initial_rot <= 30:
+        initial_rot = 30
+    elif initial_rot <= 60:
+        initial_rot = 60
+    else:
+        initial_rot = 90
 
     # ------------------------------------------------
-    # 系統推估腐爛度 base_level
+    # 系統推估腐爛度 base_level（也只有 0 / 30 / 60 / 90）
     # ------------------------------------------------
     if is_routine or not deadline_ts:
         # 習慣 / 無期限：看「距離上次打卡（或建立）經過了幾倍間隔」
@@ -88,10 +96,8 @@ def calc_rot_info(created_at, deadline_ts, is_routine,
             base_level = 0
         elif ratio < 1:
             base_level = 30
-        elif ratio < 2:
-            base_level = 50
         elif ratio < 3:
-            base_level = 70
+            base_level = 60
         else:
             base_level = 90
     else:
@@ -102,6 +108,7 @@ def calc_rot_info(created_at, deadline_ts, is_routine,
             if isinstance(deadline_ts, str) and "T" in deadline_ts:
                 try:
                     dt = datetime.strptime(deadline_ts, "%Y-%m-%dT%H:%M:%S")
+                    dt = dt.replace(tzinfo=TZ)
                     deadline_ts = dt.timestamp()
                 except Exception:
                     deadline_ts = now
@@ -110,43 +117,54 @@ def calc_rot_info(created_at, deadline_ts, is_routine,
 
         diff_hours = (now - deadline_ts) / 3600  # 正數 = 已經超過 deadline
 
-        if diff_hours < -48:
+        # 這裡也只給四階
+        if diff_hours < -48:       # 提前兩天以上
             base_level = 0
-        elif diff_hours < 0:
+        elif diff_hours < 0:       # 截止前 48 小時內
             base_level = 30
-        elif diff_hours < 24:
-            base_level = 50
-        elif diff_hours < 72:
-            base_level = 70
-        else:
+        elif diff_hours < 72:      # 截止前後 3 天內
+            base_level = 60
+        else:                      # 超過 3 天還沒做
             base_level = 90
 
-    # 最終腐爛度
-    level = max(base_level, initial_rot)
-    if level > 99:
-        level = 99
+    # --------- 緩衝機制：剛建立 / 剛修改 6 小時內不會變臭 ---------
+    GRACE_HOURS = 6
+    age_hours = max(0.0, (now - float(created_at)) / 3600.0)
 
-    # emoji + 毒雞湯 + 顏色 bucket（修成 0 / 30 / 60 / 90 四階）
-    if level < 30:
+    if age_hours < GRACE_HOURS:
+        # 6 小時內 → 一律用你選的起始腐爛度
+        level = initial_rot
+    else:
+        # 之後才開始看 base_level（系統推估）跟 initial_rot 誰比較高
+        level = max(base_level, initial_rot)
+
+    # 安全一下，如果有小數或其他狀況，再壓回四個等級
+    if level < 15:
+        level = 0
+    elif level < 45:
+        level = 30
+    elif level < 75:
+        level = 60
+    else:
+        level = 90
+
+    # emoji + 毒雞湯 + 顏色 bucket
+    if level == 0:
         emoji = "🍀"
         message = "完全新鮮，現在開始剛剛好！"
         bucket = "fresh"
-    elif level < 60:
+    elif level == 30:
         emoji = "🌱"
         message = "半熟半爛、還救得回來！"
         bucket = "mild"
-    elif level < 90:
+    elif level == 60:
         emoji = "🍄"
         message = "楞著幹嘛？還不快去做！"
         bucket = "medium"
-    elif level < 99:
+    else:  # 90
         emoji = "💥"
         message = "腐爛爆表沒救了，就你最會拖！"
         bucket = "critical"
-    else:
-        emoji = "🚨"
-        message = "這樣下去你真的會一事無成。"
-        bucket = "dead"
 
     return {
         "level": level,
@@ -154,6 +172,7 @@ def calc_rot_info(created_at, deadline_ts, is_routine,
         "message": message,
         "bucket": bucket,
     }
+
 
 
 def format_deadline(deadline_ts):
@@ -166,12 +185,13 @@ def format_deadline(deadline_ts):
         if isinstance(deadline_ts, str) and "T" in deadline_ts:
             try:
                 dt = datetime.strptime(deadline_ts, "%Y-%m-%dT%H:%M:%S")
+                dt = dt.replace(tzinfo=TZ)
                 ts = dt.timestamp()
             except Exception:
                 return str(deadline_ts)
         else:
             return str(deadline_ts)
-    dt = datetime.fromtimestamp(ts)
+    dt = datetime.fromtimestamp(ts, TZ)
     return dt.strftime("%Y-%m-%d %H:%M")
 
 
@@ -187,12 +207,13 @@ def safe_display_time(any_value):
             if isinstance(any_value, str) and "T" in any_value:
                 try:
                     dt = datetime.strptime(any_value, "%Y-%m-%dT%H:%M:%S")
+                    dt = dt.replace(tzinfo=TZ)
                     ts = dt.timestamp()
                 except Exception:
                     ts = now
             else:
                 ts = now
-    return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M")
+    return datetime.fromtimestamp(ts, TZ).strftime("%Y-%m-%d %H:%M")
 
 
 def to_datetime_local(deadline_ts):
@@ -205,25 +226,26 @@ def to_datetime_local(deadline_ts):
         if isinstance(deadline_ts, str) and "T" in deadline_ts:
             try:
                 dt = datetime.strptime(deadline_ts, "%Y-%m-%dT%H:%M:%S")
+                dt = dt.replace(tzinfo=TZ)
                 ts = dt.timestamp()
             except Exception:
                 return ""
         else:
             return ""
-    dt = datetime.fromtimestamp(ts)
+    dt = datetime.fromtimestamp(ts, TZ)
     return dt.strftime("%Y-%m-%dT%H:%M")
 
 
 def is_today(ts_value):
-    """判斷 timestamp 是否是今天（給打卡使用）"""
+    """判斷 timestamp 是否是今天（給打卡使用），以台灣時間為準"""
     if not ts_value:
         return False
     try:
         ts = float(ts_value)
     except (TypeError, ValueError):
         return False
-    d = datetime.fromtimestamp(ts).date()
-    return d == date.today()
+    d = datetime.fromtimestamp(ts, TZ).date()
+    return d == datetime.now(TZ).date()
 
 
 # -----------------------------------------------------
@@ -249,8 +271,6 @@ def get_current_owner():
     return session.get("owner_key"), session.get("display_name")
 
 
-
-
 # -----------------------------------------------------
 # 登入頁 / 根路徑
 # -----------------------------------------------------
@@ -264,6 +284,7 @@ def root():
     if owner_key:
         return redirect(url_for("index"))
     return redirect(url_for("login"))
+
 
 # -----------------------------------------------------
 # 登出 / 清空登入狀態
@@ -473,7 +494,7 @@ def index():
         if ts_val:
             try:
                 ts = float(ts_val)
-                dt = datetime.fromtimestamp(ts)
+                dt = datetime.fromtimestamp(ts, TZ)
                 time_str = dt.strftime("%m-%d %H:%M")
             except Exception:
                 time_str = ""
@@ -519,7 +540,7 @@ def index():
         if ts_val:
             try:
                 ts = float(ts_val)
-                dt = datetime.fromtimestamp(ts)
+                dt = datetime.fromtimestamp(ts, TZ)
                 time_str = dt.strftime("%m-%d %H:%M")
             except Exception:
                 time_str = ""
@@ -625,6 +646,7 @@ def add_task():
     else:
         try:
             dt = datetime.strptime(deadline_str, "%Y-%m-%dT%H:%M")
+            dt = dt.replace(tzinfo=TZ)
             deadline_ts = dt.timestamp()
         except ValueError:
             deadline_ts = ""
@@ -714,6 +736,7 @@ def edit_task(task_id):
         else:
             try:
                 dt = datetime.strptime(deadline_str, "%Y-%m-%dT%H:%M")
+                dt = dt.replace(tzinfo=TZ)
                 deadline_ts = dt.timestamp()
             except ValueError:
                 deadline_ts = ""
@@ -813,7 +836,8 @@ def checkin_task(task_id):
     last_str = ""
     if last_ts:
         try:
-            last_str = datetime.fromtimestamp(float(last_ts)).strftime("%Y-%m-%d %H:%M")
+            ts = float(last_ts)
+            last_str = datetime.fromtimestamp(ts, TZ).strftime("%Y-%m-%d %H:%M")
         except Exception:
             last_str = ""
 
@@ -857,7 +881,7 @@ def view_checkins():
         if ts_val:
             try:
                 ts = float(ts_val)
-                dt = datetime.fromtimestamp(ts)
+                dt = datetime.fromtimestamp(ts, TZ)
                 time_str = dt.strftime("%Y-%m-%d %H:%M")
             except Exception:
                 time_str = ""
@@ -1039,7 +1063,7 @@ def view_task_checkins_by_task(task_id):
         if ts_val:
             try:
                 ts = float(ts_val)
-                dt = datetime.fromtimestamp(ts)
+                dt = datetime.fromtimestamp(ts, TZ)
                 time_str = dt.strftime("%Y-%m-%d %H:%M")
             except Exception:
                 time_str = ""
